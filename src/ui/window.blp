@@ -1,0 +1,58 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TelegramaWindow : Adw.ApplicationWindow {
+  title: "Telegrama";
+  default-width: 900;
+  default-height: 640;
+  width-request: 360;
+  height-request: 400;
+
+  content: Adw.ToastOverlay toasts {
+    child: Stack stack {
+      transition-type: crossfade;
+
+      StackPage {
+        name: "login";
+        child: Adw.Bin login_slot {};
+      }
+
+      StackPage {
+        name: "main";
+
+        child: Adw.ToolbarView {
+          [top]
+          Adw.HeaderBar {
+            [end]
+            MenuButton {
+              icon-name: "open-menu-symbolic";
+              menu-model: primary_menu;
+              primary: true;
+              tooltip-text: "Main Menu";
+            }
+          }
+
+          content: Adw.StatusPage {
+            icon-name: "chat-message-new-symbolic";
+            title: "Signed in";
+            description: "The chat list arrives in phase 2.";
+          };
+        };
+      }
+    };
+  };
+}
+
+menu primary_menu {
+  section {
+    item {
+      label: "_About Telegrama";
+      action: "app.about";
+    }
+
+    item {
+      label: "_Quit";
+      action: "app.quit";
+    }
+  }
+}

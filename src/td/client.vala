@@ -1,187 +1,242 @@
-namespace Telegrama.Td {
-
-public errordomain ClientError {
-	CLOSED,
-	REMOTE,
+public errordomain Telegrama.Td.ClientError {
+    CLOSED,
+    REMOTE,
 }
 
-public delegate void RequestBuilder (Json.Builder builder);
+public delegate void Telegrama.Td.RequestBuilder (Json.Builder builder);
 
-public class Client : Object {
+public class Telegrama.Td.Client : Object {
 
-	public signal void update (string type, Json.Object body);
+    public signal void update (string type, Json.Object body);
 
-	private class Pending {
-		public SourceFunc resume;
-		public Json.Object? response = null;
-	}
+    // Distinguishes our own shutdown from TDLib closing under us, which is what
+    // a remote logout looks like.
+    public bool stopping { get; private set; default = false; }
 
-	private int client_id = 0;
-	private Thread<void>? receiver = null;
-	private MainContext context = MainContext.ref_thread_default ();
-	private AsyncQueue<Json.Object> inbox = new AsyncQueue<Json.Object> ();
-	private HashTable<string, Pending> pending = new HashTable<string, Pending> (str_hash, str_equal);
-	private int running = 0;
-	private int drain_scheduled = 0;
-	private uint64 next_extra = 0;
+    private class Pending {
+        public SourceFunc resume;
+        public Json.Object? response = null;
+    }
 
-	public void start () {
-		if (!AtomicInt.compare_and_exchange (ref running, 0, 1))
-			return;
+    private int client_id = 0;
+    private Thread<void>? receiver = null;
+    private MainContext context = MainContext.ref_thread_default ();
+    private AsyncQueue<Json.Object> inbox = new AsyncQueue<Json.Object> ();
+    private HashTable<string, Pending> pending = new HashTable<string, Pending> (str_hash, str_equal);
+    private int running = 0;
+    private int drain_scheduled = 0;
+    private uint64 next_extra = 0;
 
-		TDJson.execute ("""{"@type":"setLogVerbosityLevel","new_verbosity_level":1}""");
-		client_id = TDJson.create_client_id ();
-		receiver = new Thread<void> ("td-receive", receive_loop);
-	}
+    public void start () {
+        if (!AtomicInt.compare_and_exchange (ref running, 0, 1)) {
+            return;
+        }
 
-	public async void stop () {
-		if (AtomicInt.get (ref running) == 0)
-			return;
+        // A previous client may have closed on its own; its thread has left the
+        // loop already but still needs joining before we replace it.
+        if (receiver != null) {
+            receiver.join ();
+            receiver = null;
+        }
 
-		var closed = false;
-		var handler = update.connect ((type, body) => {
-			if (type != "updateAuthorizationState")
-				return;
-			var state = body.get_object_member ("authorization_state");
-			if (state != null && state.get_string_member ("@type") == "authorizationStateClosed")
-				closed = true;
-		});
+        TDJson.execute ("""{"@type":"setLogVerbosityLevel","new_verbosity_level":1}""");
+        client_id = TDJson.create_client_id ();
+        receiver = new Thread<void> ("td-receive", receive_loop);
+    }
 
-		TDJson.send (client_id, """{"@type":"close"}""");
+    public async void stop () {
+        if (AtomicInt.get (ref running) == 0) {
+            return;
+        }
 
-		// close only starts the teardown; TDLib confirms with authorizationStateClosed.
-		for (var i = 0; i < 60 && !closed; i++) {
-			Timeout.add (50, stop.callback);
-			yield;
-		}
+        stopping = true;
 
-		SignalHandler.disconnect (this, handler);
-		AtomicInt.set (ref running, 0);
+        var closed = false;
+        var handler = update.connect ((type, body) => {
+            if (type != "updateAuthorizationState") {
+                return;
+            }
+            var state = body.get_object_member ("authorization_state");
+            if (state != null && state.get_string_member ("@type") == "authorizationStateClosed") {
+                closed = true;
+            }
+        });
 
-		if (receiver != null) {
-			receiver.join ();
-			receiver = null;
-		}
-	}
+        TDJson.send (client_id, """{"@type":"close"}""");
 
-	public async Json.Object request (string method, owned RequestBuilder? build = null) throws ClientError {
-		if (AtomicInt.get (ref running) == 0)
-			throw new ClientError.CLOSED (@"$method: client is not running");
+        // close only starts the teardown; TDLib confirms with authorizationStateClosed.
+        for (var i = 0; i < 60 && !closed; i++) {
+            Timeout.add (50, stop.callback);
+            yield;
+        }
 
-		var extra = (++next_extra).to_string ();
+        SignalHandler.disconnect (this, handler);
+        AtomicInt.set (ref running, 0);
 
-		var builder = new Json.Builder ();
-		builder.begin_object ();
-		builder.set_member_name ("@type");
-		builder.add_string_value (method);
-		builder.set_member_name ("@extra");
-		builder.add_string_value (extra);
-		if (build != null)
-			build (builder);
-		builder.end_object ();
+        if (receiver != null) {
+            receiver.join ();
+            receiver = null;
+        }
+    }
 
-		var generator = new Json.Generator ();
-		generator.set_root (builder.get_root ());
+    public async Json.Object request (string method, owned RequestBuilder? build = null) throws ClientError {
+        if (AtomicInt.get (ref running) == 0) {
+            throw new ClientError.CLOSED (@"$method: client is not running");
+        }
 
-		var waiting = new Pending ();
-		waiting.resume = request.callback;
-		pending.insert (extra, waiting);
+        var extra = (++next_extra).to_string ();
 
-		TDJson.send (client_id, generator.to_data (null));
-		yield;
+        var builder = new Json.Builder ();
+        builder.begin_object ();
+        builder.set_member_name ("@type");
+        builder.add_string_value (method);
+        builder.set_member_name ("@extra");
+        builder.add_string_value (extra);
+        if (build != null) {
+            build (builder);
+        }
+        builder.end_object ();
 
-		pending.remove (extra);
+        var generator = new Json.Generator ();
+        generator.set_root (builder.get_root ());
 
-		if (waiting.response == null)
-			throw new ClientError.CLOSED (@"$method: client closed before a reply arrived");
+        var waiting = new Pending ();
+        waiting.resume = request.callback;
+        pending.insert (extra, waiting);
 
-		Json.Object response = waiting.response;
-		if (response.get_string_member ("@type") == "error")
-			throw new ClientError.REMOTE ("%s: %s (%d)".printf (
-				method,
-				response.get_string_member ("message"),
-				(int) response.get_int_member ("code")));
+        TDJson.send (client_id, generator.to_data (null));
+        yield;
 
-		return response;
-	}
+        pending.remove (extra);
 
-	private void receive_loop () {
-		var parser = new Json.Parser ();
+        if (waiting.response == null) {
+            throw new ClientError.CLOSED (@"$method: client closed before a reply arrived");
+        }
 
-		while (AtomicInt.get (ref running) == 1) {
-			unowned string? raw = TDJson.receive (1.0);
-			if (raw == null)
-				continue;
+        Json.Object response = waiting.response;
+        if (response.get_string_member ("@type") == "error") {
+            throw new ClientError.REMOTE ("%s: %s (%d)".printf (
+                method,
+                response.get_string_member ("message"),
+                (int) response.get_int_member ("code")));
+        }
 
-			try {
-				parser.load_from_data (raw);
-			} catch (Error e) {
-				warning ("unparsable JSON from TDLib: %s", e.message);
-				continue;
-			}
+        return response;
+    }
 
-			unowned Json.Node? root = parser.get_root ();
-			if (root == null || root.get_node_type () != Json.NodeType.OBJECT)
-				continue;
+    // Fire-and-forget for requests whose only useful outcome is an update.
+    public void send (string method, owned RequestBuilder? build = null) {
+        request.begin (method, (owned) build, (obj, res) => {
+            try {
+                request.end (res);
+            } catch (ClientError e) {
+                warning ("%s", e.message);
+            }
+        });
+    }
 
-			// Ref'd out of the parser so the next load cannot free it under us.
-			Json.Object body = root.get_object ();
-			var last = is_closed (body);
-			inbox.push (body);
+    private void receive_loop () {
+        var parser = new Json.Parser ();
 
-			if (AtomicInt.compare_and_exchange (ref drain_scheduled, 0, 1)) {
-				var source = new IdleSource ();
-				source.set_callback (() => {
-					drain ();
-					return Source.REMOVE;
-				});
-				source.attach (context);
-			}
+        while (AtomicInt.get (ref running) == 1) {
+            unowned string? raw = TDJson.receive (1.0);
+            if (raw == null) {
+                continue;
+            }
 
-			// Nothing follows authorizationStateClosed, and staying parked in
-			// receive would cost stop() a full timeout before the thread joins.
-			if (last)
-				break;
-		}
-	}
+            try {
+                parser.load_from_data (raw);
+            } catch (Error e) {
+                warning ("unparsable JSON from TDLib: %s", e.message);
+                continue;
+            }
 
-	private static bool is_closed (Json.Object body) {
-		if (!body.has_member ("@type") || body.get_string_member ("@type") != "updateAuthorizationState")
-			return false;
-		if (!body.has_member ("authorization_state"))
-			return false;
+            unowned Json.Node? root = parser.get_root ();
+            if (root == null || root.get_node_type () != Json.NodeType.OBJECT) {
+                continue;
+            }
 
-		var state = body.get_object_member ("authorization_state");
-		return state != null
-			&& state.has_member ("@type")
-			&& state.get_string_member ("@type") == "authorizationStateClosed";
-	}
+            // Ref'd out of the parser so the next load cannot free it under us.
+            Json.Object body = root.get_object ();
+            var last = is_closed (body);
+            inbox.push (body);
 
-	private void drain () {
-		AtomicInt.set (ref drain_scheduled, 0);
+            if (AtomicInt.compare_and_exchange (ref drain_scheduled, 0, 1)) {
+                var source = new IdleSource ();
+                source.set_callback (() => {
+                    drain ();
+                    return Source.REMOVE;
+                });
+                source.attach (context);
+            }
 
-		Json.Object? body = null;
-		while ((body = inbox.try_pop ()) != null)
-			dispatch (body);
-	}
+            // Nothing follows authorizationStateClosed, and staying parked in
+            // receive would cost stop() a full timeout before the thread joins.
+            // TDLib needs a fresh instance after this, so clear running and let
+            // start() build one.
+            if (last) {
+                AtomicInt.set (ref running, 0);
+                break;
+            }
+        }
+    }
 
-	private void dispatch (Json.Object body) {
-		if (!body.has_member ("@type"))
-			return;
+    private static bool is_closed (Json.Object body) {
+        if (!body.has_member ("@type") || body.get_string_member ("@type") != "updateAuthorizationState") {
+            return false;
+        }
+        if (!body.has_member ("authorization_state")) {
+            return false;
+        }
 
-		var type = body.get_string_member ("@type");
+        var state = body.get_object_member ("authorization_state");
+        return state != null
+            && state.has_member ("@type")
+            && state.get_string_member ("@type") == "authorizationStateClosed";
+    }
 
-		if (body.has_member ("@extra")) {
-			var waiting = pending.lookup (body.get_string_member ("@extra"));
-			if (waiting != null) {
-				waiting.response = body;
-				waiting.resume ();
-				return;
-			}
-		}
+    private void drain () {
+        AtomicInt.set (ref drain_scheduled, 0);
 
-		update (type, body);
-	}
-}
+        Json.Object? body = null;
+        while ((body = inbox.try_pop ()) != null) {
+            // Before dispatch, not after: dispatching a close can start a new
+            // client, and its first request must not be caught by this sweep.
+            if (is_closed (body)) {
+                fail_pending ();
+            }
+            dispatch (body);
+        }
+    }
 
+    // A closed client answers nothing further, so anything still waiting would
+    // hang for the life of the process.
+    private void fail_pending () {
+        var waiting = pending.get_values ();
+        pending.remove_all ();
+
+        foreach (unowned Pending p in waiting) {
+            p.response = null;
+            p.resume ();
+        }
+    }
+
+    private void dispatch (Json.Object body) {
+        if (!body.has_member ("@type")) {
+            return;
+        }
+
+        var type = body.get_string_member ("@type");
+
+        if (body.has_member ("@extra")) {
+            var waiting = pending.lookup (body.get_string_member ("@extra"));
+            if (waiting != null) {
+                waiting.response = body;
+                waiting.resume ();
+                return;
+            }
+        }
+
+        update (type, body);
+    }
 }
