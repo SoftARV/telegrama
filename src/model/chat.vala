@@ -11,6 +11,10 @@ public class Telegrama.Chat : Object {
     // Position in the main chat list. Zero means the chat is not in it.
     public int64 order { get; set; default = 0; }
 
+    // Null until the avatar has been downloaded, which is what makes the
+    // Adw.Avatar fall back to initials.
+    public Gdk.Paintable? photo { get; set; default = null; }
+
     public Chat (int64 id) {
         Object (id: id);
     }

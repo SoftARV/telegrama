@@ -37,6 +37,7 @@ public class Telegrama.ChatRow : Gtk.Box {
         }
 
         avatar.text = chat.title;
+        avatar.set_custom_image (chat.photo);
         title_label.label = chat.title;
         preview_label.label = chat.preview;
         time_label.label = Dates.relative (chat.date);
