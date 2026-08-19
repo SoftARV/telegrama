@@ -19,6 +19,7 @@ public class Telegrama.ChatView : Adw.Bin {
     private Message? flashing = null;
     private uint flash_source = 0;
     private bool flash_variant = false;
+    private bool adjusting = false;
 
     public ChatView (MessageList messages) {
         Object (messages: messages);
@@ -93,11 +94,20 @@ public class Telegrama.ChatView : Adw.Bin {
         });
 
         scroll.vadjustment.value_changed.connect (() => {
+            // Our own scrolling is not the reader changing their mind about
+            // where they want to be.
+            if (adjusting) {
+                return;
+            }
+
             var adjustment = scroll.vadjustment;
 
             follow = adjustment.upper - (adjustment.value + adjustment.page_size) < EDGE;
 
-            if (adjustment.value < EDGE) {
+            // Only page back when there is something to scroll. A view whose
+            // content does not fill it sits at value 0, which otherwise reads
+            // as "the reader is at the top, fetch more".
+            if (adjustment.upper > adjustment.page_size && adjustment.value < EDGE) {
                 messages.load_older ();
             }
         });
@@ -168,8 +178,22 @@ public class Telegrama.ChatView : Adw.Bin {
         });
     }
 
+    // Asking the list for its last row rather than driving the adjustment: the
+    // adjustment's upper lags behind rows that have not been measured yet, so
+    // computing a position from it lands short and, worse, can look like a
+    // scroll to the top.
     private void to_bottom () {
-        var adjustment = scroll.vadjustment;
-        adjustment.value = adjustment.upper - adjustment.page_size;
+        var count = messages.store.get_n_items ();
+        if (count == 0) {
+            return;
+        }
+
+        adjusting = true;
+        list.scroll_to (count - 1, Gtk.ListScrollFlags.NONE, null);
+
+        Idle.add (() => {
+            adjusting = false;
+            return Source.REMOVE;
+        });
     }
 }
