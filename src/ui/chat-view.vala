@@ -22,6 +22,7 @@ public class Telegrama.ChatView : Adw.Bin {
     private uint flash_source = 0;
     private bool flash_variant = false;
     private bool adjusting = false;
+    private uint settle_source = 0;
 
     public ChatView (MessageList messages) {
         Object (messages: messages);
@@ -185,10 +186,6 @@ public class Telegrama.ChatView : Adw.Bin {
         });
     }
 
-    // Asking the list for its last row rather than driving the adjustment: the
-    // adjustment's upper lags behind rows that have not been measured yet, so
-    // computing a position from it lands short and, worse, can look like a
-    // scroll to the top.
     // One place, so the button showing the way back always matches whether the
     // view is actually pinned to the bottom.
     private void set_follow (bool value) {
@@ -196,17 +193,27 @@ public class Telegrama.ChatView : Adw.Bin {
         jump_down.reveal_child = !value;
     }
 
+    // Driving the adjustment rather than asking the list to scroll to the last
+    // row: scroll_to only brings a row far enough into view to be visible, and
+    // a row that has not been measured yet is brought too little, leaving the
+    // view a row short of the bottom with nothing to correct it. The adjustment
+    // can be told exactly where the bottom is, and re-told each time the rows
+    // are measured and upper grows.
     private void to_bottom () {
-        var count = messages.store.get_n_items ();
-        if (count == 0) {
-            return;
-        }
+        var adjustment = scroll.vadjustment;
 
         adjusting = true;
-        list.scroll_to (count - 1, Gtk.ListScrollFlags.NONE, null);
+        adjustment.value = adjustment.upper - adjustment.page_size;
 
-        Idle.add (() => {
+        // Held for a few frames rather than one idle: the list settles over
+        // several, and a value change during that time is ours, not the
+        // reader's.
+        if (settle_source != 0) {
+            Source.remove (settle_source);
+        }
+        settle_source = Timeout.add (150, () => {
             adjusting = false;
+            settle_source = 0;
             return Source.REMOVE;
         });
     }
