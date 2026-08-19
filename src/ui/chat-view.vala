@@ -126,6 +126,15 @@ public class Telegrama.ChatView : Adw.Bin {
             set_follow (true);
             anchor = -1;
             stack.visible_child_name = messages.chat == null ? "empty" : "messages";
+
+            if (messages.chat != null) {
+                // Deferred: the stack has only just been told to show this page,
+                // and a widget that is not mapped yet cannot take focus.
+                Idle.add (() => {
+                    entry.grab_focus ();
+                    return Source.REMOVE;
+                });
+            }
         });
 
         // Older messages go in at the top, which moves everything below them.
