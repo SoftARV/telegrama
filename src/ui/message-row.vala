@@ -9,6 +9,8 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Box reply_box;
     [GtkChild] private unowned Gtk.Label reply_sender;
     [GtkChild] private unowned Gtk.Label reply_text;
+    [GtkChild] private unowned Gtk.Box body;
+    [GtkChild] private unowned Gtk.Box footer;
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
     [GtkChild] private unowned Gtk.Label edited_label;
@@ -129,6 +131,35 @@ public class Telegrama.MessageRow : Gtk.Box {
         base.dispose ();
     }
 
+    // Telegram tucks the stamp onto the last line of a short message rather
+    // than always giving it a line of its own. There is no GTK layout that does
+    // this, so the text and the stamp are measured and laid side by side when
+    // they fit.
+    private void shape_body () {
+        if (message == null) {
+            return;
+        }
+
+        var metrics = text_label.get_pango_context ().get_metrics (null, null);
+        var char_width = metrics.get_approximate_char_width () / Pango.SCALE;
+        var limit = char_width * text_label.max_width_chars;
+
+        // Measured from the plain text: the label holds Pango markup, whose
+        // tags would count towards the width.
+        var layout = text_label.create_pango_layout (message.text);
+        int text_width, text_height;
+        layout.get_pixel_size (out text_width, out text_height);
+
+        int stamp_min, stamp_natural, ignored_a, ignored_b;
+        footer.measure (Gtk.Orientation.HORIZONTAL, -1,
+            out stamp_min, out stamp_natural, out ignored_a, out ignored_b);
+
+        var one_line = layout.get_line_count () == 1;
+        var fits = one_line && text_width + stamp_natural + body.spacing <= limit;
+
+        body.orientation = fits ? Gtk.Orientation.HORIZONTAL : Gtk.Orientation.VERTICAL;
+    }
+
     private void refresh () {
         if (message == null) {
             return;
@@ -202,6 +233,8 @@ public class Telegrama.MessageRow : Gtk.Box {
         }
 
         time_label.label = new DateTime.from_unix_local (message.date).format ("%H:%M");
+
+        shape_body ();
 
         edited_label.visible = message.edited;
 
