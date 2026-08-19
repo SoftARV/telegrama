@@ -31,17 +31,6 @@ public class Telegrama.MessageList : Object {
     construct {
         client.update.connect (on_update);
 
-        users.learned.connect ((id, name) => {
-            for (uint i = 0; i < store.get_n_items (); i++) {
-                var message = (Message) store.get_item (i);
-                if (message.sender_id != id) {
-                    continue;
-                }
-                if (chat != null && chat.is_group) {
-                    message.sender_name = name;
-                }
-            }
-        });
     }
 
     public void open (Chat? target) {
@@ -176,10 +165,9 @@ public class Telegrama.MessageList : Object {
             source.get_boolean_member ("is_outgoing"),
             source.get_int_member ("date"),
             !service && content.get_string_member ("@type") != "messageText",
-            service
+            service,
+            chat.is_group
         );
-
-        message.sender_name = chat.is_group ? users.name_for (message.sender_id) : "";
 
         if (service) {
             message.text = Content.notice (content, users.name_for (message.sender_id));

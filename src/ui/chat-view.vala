@@ -23,7 +23,7 @@ public class Telegrama.ChatView : Adw.Bin {
         var factory = new Gtk.SignalListItemFactory ();
 
         factory.setup.connect ((object) => {
-            ((Gtk.ListItem) object).child = new MessageRow ();
+            ((Gtk.ListItem) object).child = new MessageRow (messages.users);
         });
 
         factory.bind.connect ((object) => {

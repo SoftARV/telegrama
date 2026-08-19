@@ -2,15 +2,31 @@
 public class Telegrama.MessageRow : Gtk.Box {
 
     [GtkChild] private unowned Gtk.Label service_label;
+    [GtkChild] private unowned Gtk.Box line;
+    [GtkChild] private unowned Adw.Avatar avatar;
     [GtkChild] private unowned Gtk.Box bubble;
     [GtkChild] private unowned Gtk.Label sender_label;
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
 
+    public UserStore users { get; construct; }
+
     private Message? message = null;
     private ulong handler = 0;
 
+    public MessageRow (UserStore users) {
+        Object (users: users);
+    }
+
     construct {
+        // A sender's name, colour and picture usually arrive after the messages
+        // that need them, so the row repaints when its own sender turns up.
+        users.changed.connect ((id) => {
+            if (message != null && message.sender_id == id) {
+                refresh ();
+            }
+        });
+
         // Any click on the text reveals every spoiler in that message. Telegram
         // reveals them one at a time, which needs hit-testing into the Pango
         // layout; this is the honest simplification.
@@ -60,20 +76,35 @@ public class Telegrama.MessageRow : Gtk.Box {
         }
 
         service_label.visible = message.is_service;
-        bubble.visible = !message.is_service;
+        line.visible = !message.is_service;
 
         if (message.is_service) {
             service_label.label = message.text;
             return;
         }
 
-        bubble.halign = message.is_outgoing ? Gtk.Align.END : Gtk.Align.START;
+        line.halign = message.is_outgoing ? Gtk.Align.END : Gtk.Align.START;
+
+        // Named and pictured only where there is more than one other person.
+        var attributed = message.in_group && !message.is_outgoing;
+        var name = attributed ? users.name_for (message.sender_id) : "";
 
         bubble.remove_css_class (message.is_outgoing ? "bubble-in" : "bubble-out");
         bubble.add_css_class (message.is_outgoing ? "bubble-out" : "bubble-in");
 
-        sender_label.label = message.sender_name;
-        sender_label.visible = !message.is_outgoing && message.sender_name != "";
+        sender_label.visible = name != "";
+        if (name != "") {
+            // Telegram assigns each person a colour; this shows theirs rather
+            // than picking one.
+            var colour = users.colour_for (message.sender_id);
+            sender_label.label = @"<span foreground=\"$colour\">$(Markup.escape_text (name))</span>";
+        }
+
+        avatar.visible = attributed;
+        if (attributed) {
+            avatar.text = name;
+            avatar.set_custom_image (users.photo_for (message.sender_id));
+        }
 
         if (message.formatted != null) {
             text_label.label = Entities.markup (

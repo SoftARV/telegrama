@@ -7,7 +7,10 @@ public class Telegrama.Message : Object {
     public int64 date { get; construct; }
 
     public string text { get; set; default = ""; }
-    public string sender_name { get; set; default = ""; }
+
+    // Only groups name and picture their senders; in a private chat there is
+    // only one other person and saying so every line is noise.
+    public bool in_group { get; construct; }
 
     // Set for messages the sidebar would summarise rather than quote, so the
     // bubble can render "Photo" differently from something someone typed.
@@ -23,8 +26,8 @@ public class Telegrama.Message : Object {
     public bool spoilers_revealed { get; set; default = false; }
 
     public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date,
-                    bool is_media, bool is_service) {
+                    bool is_media, bool is_service, bool in_group) {
         Object (id: id, sender_id: sender_id, is_outgoing: is_outgoing, date: date,
-                is_media: is_media, is_service: is_service);
+                is_media: is_media, is_service: is_service, in_group: in_group);
     }
 }

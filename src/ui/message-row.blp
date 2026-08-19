@@ -1,4 +1,5 @@
 using Gtk 4.0;
+using Adw 1;
 
 template $TelegramaMessageRow : Box {
   // Vertical so the bubble is allocated the full row width and its halign has
@@ -24,15 +25,26 @@ template $TelegramaMessageRow : Box {
     ]
   }
 
-  Box bubble {
-    orientation: vertical;
-    spacing: 1;
+  Box line {
+    spacing: 6;
 
-    styles [
-      "bubble",
-    ]
+    Adw.Avatar avatar {
+      size: 28;
+      show-initials: true;
+      valign: end;
+      visible: false;
+    }
+
+    Box bubble {
+      orientation: vertical;
+      spacing: 1;
+
+      styles [
+        "bubble",
+      ]
 
     Label sender_label {
+      use-markup: true;
       halign: start;
       xalign: 0;
       ellipsize: end;
@@ -53,13 +65,14 @@ template $TelegramaMessageRow : Box {
       max-width-chars: 48;
     }
 
-    Label time_label {
-      halign: end;
+      Label time_label {
+        halign: end;
 
-      styles [
-        "caption",
-        "dim-label",
-      ]
+        styles [
+          "caption",
+          "dim-label",
+        ]
+      }
     }
   }
 }
