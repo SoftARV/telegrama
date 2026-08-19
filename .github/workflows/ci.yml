@@ -1,23 +1,69 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+    paths-ignore:
+      - '**.md'
+      - docs/**
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: read
+  packages: write
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Resolving the image is its own job so the build can declare it as a
+  # container: a job cannot reference a step in itself. It also means the build
+  # waits for the image instead of racing it.
+  image:
     runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Named after the Dockerfile that produced it, so every commit builds
+      # against its own toolchain and no branch can overwrite another's image.
+      - id: resolve
+        run: |
+          tag=$(sha256sum ci/Dockerfile | cut -c1-12)
+          echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}/ci:${tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: probe
+        run: |
+          if docker manifest inspect "${{ steps.resolve.outputs.ref }}" >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.probe.outputs.present == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: ci
+          push: true
+          tags: ${{ steps.resolve.outputs.ref }}
+
+  build:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     container:
-      image: ghcr.io/softarv/telegrama/ci:latest
+      image: ${{ needs.image.outputs.ref }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
