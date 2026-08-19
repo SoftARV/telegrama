@@ -4,12 +4,17 @@ public class Telegrama.LoginView : Adw.Bin {
     [GtkChild] private unowned Gtk.Stack stack;
     [GtkChild] private unowned Gtk.Entry phone_entry;
     [GtkChild] private unowned Gtk.Button phone_next;
+    [GtkChild] private unowned Gtk.Button phone_use_qr;
+    [GtkChild] private unowned Adw.Bin qr_slot;
+    [GtkChild] private unowned Gtk.Button qr_use_phone;
     [GtkChild] private unowned Adw.StatusPage code_page;
     [GtkChild] private unowned Gtk.Entry code_entry;
     [GtkChild] private unowned Gtk.Button code_next;
     [GtkChild] private unowned Adw.StatusPage password_page;
     [GtkChild] private unowned Gtk.PasswordEntry password_entry;
     [GtkChild] private unowned Gtk.Button password_next;
+
+    private QrCode qr_code = new QrCode ();
 
     public AuthSession auth { get; construct; }
 
@@ -24,6 +29,16 @@ public class Telegrama.LoginView : Adw.Bin {
         code_next.clicked.connect (submit_code);
         password_entry.activate.connect (submit_password);
         password_next.clicked.connect (submit_password);
+
+        qr_slot.child = qr_code;
+        phone_use_qr.clicked.connect (auth.use_qr);
+        qr_use_phone.clicked.connect (auth.use_phone);
+
+        // The token rotates without the stage changing, so this is a separate
+        // subscription rather than part of sync().
+        auth.notify["qr-link"].connect (() => {
+            qr_code.link = auth.qr_link;
+        });
 
         auth.notify["stage"].connect (sync);
         sync ();
@@ -40,6 +55,11 @@ public class Telegrama.LoginView : Adw.Bin {
             case AuthStage.PHONE:
                 stack.visible_child_name = "phone";
                 phone_entry.grab_focus ();
+                break;
+
+            case AuthStage.QR:
+                qr_code.link = auth.qr_link;
+                stack.visible_child_name = "qr";
                 break;
 
             case AuthStage.CODE:

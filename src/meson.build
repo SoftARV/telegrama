@@ -3,6 +3,11 @@ cc = meson.get_compiler('c')
 # TDLib ships no pkg-config file.
 tdjson_dep = cc.find_library('tdjson', required: true)
 
+# libqrencode does ship a .pc, but meson would then hand valac
+# "--pkg libqrencode" and collide with the vapi below, which is named for the
+# header rather than the pkg-config module.
+qrencode_dep = cc.find_library('qrencode', required: true)
+
 conf = configuration_data()
 conf.set('APP_ID', app_id)
 conf.set('APP_PATH', app_path)
@@ -44,11 +49,13 @@ resources = gnome.compile_resources('telegrama-resources',
 
 sources = files(
   '../vapi/tdjson.vapi',
+  '../vapi/qrencode.vapi',
   'main.vala',
   'application.vala',
   'td/client.vala',
   'model/auth.vala',
   'ui/window.vala',
+  'ui/qr-code.vala',
   'ui/login-view.vala',
   'util/keyring.vala',
 )
@@ -63,7 +70,9 @@ executable('telegrama',
     dependency('gtk4', version: '>= 4.10'),
     dependency('libadwaita-1', version: '>= 1.7'),
     dependency('libsecret-1'),
+    dependency('cairo'),
     tdjson_dep,
+    qrencode_dep,
   ],
   vala_args: ['--gresourcesdir=' + meson.current_build_dir()],
   install: true,

@@ -2,6 +2,7 @@ public enum Telegrama.AuthStage {
     CONNECTING,
     UNCONFIGURED,
     PHONE,
+    QR,
     CODE,
     PASSWORD,
     REGISTRATION,
@@ -18,6 +19,15 @@ public class Telegrama.AuthSession : Object {
     // the UI rather than mirrored from the API.
     public string code_target { get; private set; default = ""; }
     public string password_hint { get; private set; default = ""; }
+
+    // Telegram rotates the login token every few seconds and re-sends the same
+    // authorization state with a new link. The stage does not change across
+    // those, so the UI has to follow this property, not the stage.
+    public string qr_link { get; private set; default = ""; }
+
+    // QR is the default way in. Cleared for good once the user asks for the
+    // phone form, so a later state change does not drag them back.
+    private bool qr_preferred = true;
 
     public signal void failed (string message);
 
@@ -40,6 +50,35 @@ public class Telegrama.AuthSession : Object {
             apply (yield client.request ("getAuthorizationState"));
         } catch (Td.ClientError e) {
             failed (e.message);
+        }
+    }
+
+    public void use_qr () {
+        qr_preferred = true;
+        if (qr_link != "") {
+            stage = AuthStage.QR;
+        }
+        request_qr.begin ();
+    }
+
+    // TDLib stays in WaitOtherDeviceConfirmation until a phone number arrives,
+    // so going back is purely a UI move until the user submits one.
+    public void use_phone () {
+        qr_preferred = false;
+        stage = AuthStage.PHONE;
+    }
+
+    private async void request_qr () {
+        try {
+            yield client.request ("requestQrCodeAuthentication", (b) => {
+                b.set_member_name ("other_user_ids");
+                b.begin_array ();
+                b.end_array ();
+            });
+        } catch (Td.ClientError e) {
+            // Never leave the user staring at a spinner with no way forward.
+            failed (explain (e.message));
+            use_phone ();
         }
     }
 
@@ -92,7 +131,20 @@ public class Telegrama.AuthSession : Object {
                 break;
 
             case "authorizationStateWaitPhoneNumber":
-                stage = AuthStage.PHONE;
+                if (qr_preferred) {
+                    // Stay on the spinner for the round trip; the QR page would
+                    // otherwise flash an empty square before the link lands.
+                    request_qr.begin ();
+                } else {
+                    stage = AuthStage.PHONE;
+                }
+                break;
+
+            case "authorizationStateWaitOtherDeviceConfirmation":
+                qr_link = state.get_string_member ("link");
+                if (qr_preferred) {
+                    stage = AuthStage.QR;
+                }
                 break;
 
             case "authorizationStateWaitCode":

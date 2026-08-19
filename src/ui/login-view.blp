@@ -74,6 +74,49 @@ template $TelegramaLoginView : Adw.Bin {
                   "pill",
                 ]
               }
+
+              Button phone_use_qr {
+                label: "Sign in with a QR code";
+                halign: center;
+                margin-top: 6;
+
+                styles [
+                  "flat",
+                ]
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "qr";
+
+        child: Adw.StatusPage {
+          title: "Scan to sign in";
+          description: "In Telegram on your phone, open Settings, then Devices, then Link Desktop Device.";
+
+          child: Adw.Clamp {
+            maximum-size: 320;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 18;
+
+              Adw.Bin qr_slot {
+                width-request: 240;
+                height-request: 240;
+                halign: center;
+              }
+
+              Button qr_use_phone {
+                label: "Use a phone number instead";
+                halign: center;
+
+                styles [
+                  "flat",
+                ]
+              }
             };
           };
         };

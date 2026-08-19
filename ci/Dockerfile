@@ -10,7 +10,7 @@ ARG TDLIB_REF=a9966eb3704a3351568c28013fed67d797c17828
 RUN pacman -Syu --noconfirm --needed \
       git cmake ninja meson pkgconf \
       vala blueprint-compiler \
-      glib2 json-glib gtk4 libadwaita \
+      glib2 json-glib gtk4 libadwaita libsecret qrencode \
       openssl zlib gperf \
   && pacman -Scc --noconfirm
 
