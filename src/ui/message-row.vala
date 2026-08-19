@@ -1,6 +1,7 @@
 [GtkTemplate (ui = "/dev/miguel/Telegrama/message-row.ui")]
 public class Telegrama.MessageRow : Gtk.Box {
 
+    [GtkChild] private unowned Gtk.Label service_label;
     [GtkChild] private unowned Gtk.Box bubble;
     [GtkChild] private unowned Gtk.Label sender_label;
     [GtkChild] private unowned Gtk.Label text_label;
@@ -8,6 +9,19 @@ public class Telegrama.MessageRow : Gtk.Box {
 
     private Message? message = null;
     private ulong handler = 0;
+
+    construct {
+        // Any click on the text reveals every spoiler in that message. Telegram
+        // reveals them one at a time, which needs hit-testing into the Pango
+        // layout; this is the honest simplification.
+        var reveal = new Gtk.GestureClick ();
+        reveal.released.connect (() => {
+            if (message != null && !message.spoilers_revealed) {
+                message.spoilers_revealed = true;
+            }
+        });
+        text_label.add_controller (reveal);
+    }
 
     public void bind (Message message) {
         unbind ();
@@ -29,8 +43,27 @@ public class Telegrama.MessageRow : Gtk.Box {
         handler = 0;
     }
 
+    // Spoilers are painted in the label's own colour so they read as a solid
+    // bar and follow the theme, rather than against a palette we invented.
+    private string ink () {
+        var colour = text_label.get_color ();
+        return "#%02x%02x%02x".printf (
+            (int) (colour.red * 255),
+            (int) (colour.green * 255),
+            (int) (colour.blue * 255)
+        );
+    }
+
     private void refresh () {
         if (message == null) {
+            return;
+        }
+
+        service_label.visible = message.is_service;
+        bubble.visible = !message.is_service;
+
+        if (message.is_service) {
+            service_label.label = message.text;
             return;
         }
 
@@ -42,7 +75,15 @@ public class Telegrama.MessageRow : Gtk.Box {
         sender_label.label = message.sender_name;
         sender_label.visible = !message.is_outgoing && message.sender_name != "";
 
-        text_label.label = message.text;
+        if (message.formatted != null) {
+            text_label.label = Entities.markup (
+                message.formatted,
+                message.spoilers_revealed,
+                ink ()
+            );
+        } else {
+            text_label.label = Markup.escape_text (message.text);
+        }
 
         // Anything the sidebar would summarise is a stand-in rather than words
         // someone typed, so it should not read as if they were.

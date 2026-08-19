@@ -1,5 +1,4 @@
 using Gtk 4.0;
-using Adw 1;
 
 template $TelegramaMessageRow : Box {
   // Vertical so the bubble is allocated the full row width and its halign has
@@ -9,6 +8,21 @@ template $TelegramaMessageRow : Box {
   margin-end: 12;
   margin-top: 2;
   margin-bottom: 2;
+
+  Label service_label {
+    halign: center;
+    justify: center;
+    wrap: true;
+    wrap-mode: word_char;
+    visible: false;
+    margin-top: 4;
+    margin-bottom: 4;
+
+    styles [
+      "caption",
+      "dim-label",
+    ]
+  }
 
   Box bubble {
     orientation: vertical;
@@ -35,6 +49,7 @@ template $TelegramaMessageRow : Box {
       wrap: true;
       wrap-mode: word_char;
       selectable: true;
+      use-markup: true;
       max-width-chars: 48;
     }
 

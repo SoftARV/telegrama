@@ -13,7 +13,18 @@ public class Telegrama.Message : Object {
     // bubble can render "Photo" differently from something someone typed.
     public bool is_media { get; construct; }
 
-    public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date, bool is_media) {
-        Object (id: id, sender_id: sender_id, is_outgoing: is_outgoing, date: date, is_media: is_media);
+    // A notice rather than something a person wrote, laid out centred with no
+    // bubble.
+    public bool is_service { get; construct; }
+
+    // Kept whole so the row can re-render when a spoiler is revealed, rather
+    // than baking markup at load time.
+    public Json.Object? formatted { get; set; default = null; }
+    public bool spoilers_revealed { get; set; default = false; }
+
+    public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date,
+                    bool is_media, bool is_service) {
+        Object (id: id, sender_id: sender_id, is_outgoing: is_outgoing, date: date,
+                is_media: is_media, is_service: is_service);
     }
 }

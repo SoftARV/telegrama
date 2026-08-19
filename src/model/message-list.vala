@@ -34,7 +34,10 @@ public class Telegrama.MessageList : Object {
         users.learned.connect ((id, name) => {
             for (uint i = 0; i < store.get_n_items (); i++) {
                 var message = (Message) store.get_item (i);
-                if (message.sender_id == id && chat != null && chat.is_group) {
+                if (message.sender_id != id) {
+                    continue;
+                }
+                if (chat != null && chat.is_group) {
                     message.sender_name = name;
                 }
             }
@@ -165,19 +168,39 @@ public class Telegrama.MessageList : Object {
         }
 
         var content = source.get_object_member ("content");
+        var service = Content.is_service (content);
+
         var message = new Message (
             id,
             sender_of (source),
             source.get_boolean_member ("is_outgoing"),
             source.get_int_member ("date"),
-            content.get_string_member ("@type") != "messageText"
+            !service && content.get_string_member ("@type") != "messageText",
+            service
         );
 
-        message.text = Content.full (source);
         message.sender_name = chat.is_group ? users.name_for (message.sender_id) : "";
+
+        if (service) {
+            message.text = Content.notice (content, users.name_for (message.sender_id));
+        } else {
+            message.text = Content.full (source);
+            message.formatted = formatted_of (content);
+        }
 
         by_id.insert (key, message);
         return message;
+    }
+
+    // Only text and captions carry entities; everything else renders as a label.
+    private static Json.Object? formatted_of (Json.Object content) {
+        if (content.get_string_member ("@type") == "messageText") {
+            return content.get_object_member ("text");
+        }
+        if (content.has_member ("caption")) {
+            return content.get_object_member ("caption");
+        }
+        return null;
     }
 
     private static int64 sender_of (Json.Object source) {
