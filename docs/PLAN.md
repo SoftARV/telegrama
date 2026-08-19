@@ -1,9 +1,9 @@
-# telegram-native — plan
+# telegrama — plan
 
 A fast, low-memory native Telegram client for Linux. GTK4 + libadwaita, written in Vala,
 talking to **TDLib** over its C JSON interface.
 
-App ID `dev.miguel.TelegramNative`, object path `/dev/miguel/TelegramNative`, binary `telegram-native`.
+App ID `dev.miguel.Telegrama`, object path `/dev/miguel/Telegrama`, binary `telegrama`.
 
 ## Decisions (locked)
 
@@ -94,14 +94,14 @@ var chat = yield client.request ("getChat", b => b.set_int_member ("chat_id", id
 Mirrors the `switchboard` conventions (meson + Blueprint + gresource).
 
 ```
-telegram-native/
+telegrama/
 ├── meson.build
 ├── meson_options.txt            # api_id, api_hash
 ├── vapi/tdjson.vapi             # the 5 C functions
 ├── data/
-│   ├── dev.miguel.TelegramNative.desktop.in
-│   ├── dev.miguel.TelegramNative.metainfo.xml.in
-│   ├── dev.miguel.TelegramNative.gschema.xml
+│   ├── dev.miguel.Telegrama.desktop.in
+│   ├── dev.miguel.Telegrama.metainfo.xml.in
+│   ├── dev.miguel.Telegrama.gschema.xml
 │   └── icons/
 └── src/
     ├── main.vala  application.vala  config.vala.in  style.css
@@ -155,7 +155,7 @@ Ready               → main window
 `setTdlibParameters`. Generate a random key on first run, store it in **libsecret** (0.21.7 is
 installed), fall back to an empty key if the keyring is unavailable.
 
-DB goes in `$XDG_DATA_HOME/telegram-native`, files in `$XDG_CACHE_HOME/telegram-native`.
+DB goes in `$XDG_DATA_HOME/telegrama`, files in `$XDG_CACHE_HOME/telegrama`.
 
 `AdwCarousel`-free, single `AdwNavigationView` login flow: phone → code → password.
 

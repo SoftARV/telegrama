@@ -1,11 +1,11 @@
-# telegram-native
+# telegrama
 
 A fast, low-memory native Telegram client for Linux.
 
 GTK4 / libadwaita in Vala, talking to [TDLib](https://core.telegram.org/tdlib) over its C JSON
 interface. Built because a Chromium-based client has no business using 600 MB to show text.
 
-**Status:** planning. No code yet — see [PLAN.md](PLAN.md).
+**Status:** planning. No code yet — see [docs/PLAN.md](docs/PLAN.md).
 
 ## Build
 
