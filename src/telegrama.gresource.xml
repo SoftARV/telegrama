@@ -5,6 +5,10 @@
     <file alias="icons/scalable/apps/dev.miguel.Telegrama.svg">../data/icons/hicolor/scalable/apps/dev.miguel.Telegrama.svg</file>
     <file alias="icons/symbolic/apps/dev.miguel.Telegrama-symbolic.svg">../data/icons/hicolor/symbolic/apps/dev.miguel.Telegrama-symbolic.svg</file>
     <file alias="icons/symbolic/apps/telegrama-send-symbolic.svg">../data/icons/hicolor/symbolic/apps/telegrama-send-symbolic.svg</file>
+    <file alias="icons/symbolic/apps/telegrama-status-sending-symbolic.svg">../data/icons/hicolor/symbolic/apps/telegrama-status-sending-symbolic.svg</file>
+    <file alias="icons/symbolic/apps/telegrama-status-sent-symbolic.svg">../data/icons/hicolor/symbolic/apps/telegrama-status-sent-symbolic.svg</file>
+    <file alias="icons/symbolic/apps/telegrama-status-delivered-symbolic.svg">../data/icons/hicolor/symbolic/apps/telegrama-status-delivered-symbolic.svg</file>
+    <file alias="icons/symbolic/apps/telegrama-status-failed-symbolic.svg">../data/icons/hicolor/symbolic/apps/telegrama-status-failed-symbolic.svg</file>
     <file preprocess="xml-stripblanks">window.ui</file>
     <file preprocess="xml-stripblanks">login-view.ui</file>
     <file preprocess="xml-stripblanks">chat-row.ui</file>

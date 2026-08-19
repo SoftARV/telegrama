@@ -12,7 +12,7 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
     [GtkChild] private unowned Gtk.Label edited_label;
-    [GtkChild] private unowned Gtk.Label state_label;
+    [GtkChild] private unowned Gtk.Image state_icon;
 
     public signal void jump (int64 message_id);
     public signal void edit_requested (Message message);
@@ -205,15 +205,19 @@ public class Telegrama.MessageRow : Gtk.Box {
 
         edited_label.visible = message.edited;
 
-        // Only our own messages have a delivery state worth reporting.
-        state_label.visible = message.is_outgoing;
+        // Only our own messages have a delivery state worth reporting. Drawn
+        // icons rather than tick characters, which render at the mercy of
+        // whichever font happens to carry them.
+        state_icon.visible = message.is_outgoing;
         if (message.is_outgoing) {
             if (message.failed) {
-                state_label.label = "⚠";
+                state_icon.icon_name = "telegrama-status-failed-symbolic";
             } else if (message.sending) {
-                state_label.label = "🕓";
+                state_icon.icon_name = "telegrama-status-sending-symbolic";
+            } else if (message.read) {
+                state_icon.icon_name = "telegrama-status-delivered-symbolic";
             } else {
-                state_label.label = message.read ? "✓✓" : "✓";
+                state_icon.icon_name = "telegrama-status-sent-symbolic";
             }
         }
     }
