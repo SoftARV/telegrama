@@ -7,5 +7,7 @@
     <file preprocess="xml-stripblanks">window.ui</file>
     <file preprocess="xml-stripblanks">login-view.ui</file>
     <file preprocess="xml-stripblanks">chat-row.ui</file>
+    <file preprocess="xml-stripblanks">message-row.ui</file>
+    <file preprocess="xml-stripblanks">chat-view.ui</file>
   </gresource>
 </gresources>

@@ -1,0 +1,50 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TelegramaMessageRow : Box {
+  // Vertical so the bubble is allocated the full row width and its halign has
+  // room to mean something; a horizontal box would pack it at natural width.
+  orientation: vertical;
+  margin-start: 12;
+  margin-end: 12;
+  margin-top: 2;
+  margin-bottom: 2;
+
+  Box bubble {
+    orientation: vertical;
+    spacing: 1;
+
+    styles [
+      "bubble",
+    ]
+
+    Label sender_label {
+      halign: start;
+      xalign: 0;
+      ellipsize: end;
+      single-line-mode: true;
+
+      styles [
+        "caption-heading",
+      ]
+    }
+
+    Label text_label {
+      halign: start;
+      xalign: 0;
+      wrap: true;
+      wrap-mode: word_char;
+      selectable: true;
+      max-width-chars: 48;
+    }
+
+    Label time_label {
+      halign: end;
+
+      styles [
+        "caption",
+        "dim-label",
+      ]
+    }
+  }
+}

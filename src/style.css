@@ -10,3 +10,21 @@
     font-size: 0.75rem;
     font-weight: bold;
 }
+
+.bubble {
+    border-radius: 14px;
+    padding: 6px 10px;
+}
+
+.bubble-in {
+    background-color: @card_bg_color;
+}
+
+.bubble-out {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.message-list {
+    background: none;
+}

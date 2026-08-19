@@ -51,18 +51,14 @@ template $TelegramaWindow : Adw.ApplicationWindow {
             };
           };
 
-          content: Adw.NavigationPage {
+          content: Adw.NavigationPage content_page {
             title: "Telegrama";
 
             child: Adw.ToolbarView {
               [top]
               Adw.HeaderBar {}
 
-              content: Adw.StatusPage placeholder {
-                icon-name: "chat-message-new-symbolic";
-                title: "Select a chat";
-                description: "Message history arrives in phase 3.";
-              };
+              content: Adw.Bin conversation_slot {};
             };
           };
         };
