@@ -123,3 +123,26 @@ scrollbar.composer-bar slider {
 scrollbar.composer-bar slider:hover {
     background-color: alpha(currentColor, 0.42);
 }
+
+/* The popover's own items, rather than a GtkPopoverMenu: normal weight, room
+   to read, and an icon per action. */
+.message-menu {
+    margin: 2px;
+}
+
+.message-menu-item {
+    padding: 7px 10px;
+    min-height: 0;
+    border-radius: 7px;
+    font-weight: normal;
+    font-size: 14px;
+}
+
+.message-menu-item label {
+    font-weight: normal;
+    font-size: 14px;
+}
+
+popover.message-menu-popover > contents {
+    padding: 4px;
+}

@@ -24,6 +24,7 @@ public class Telegrama.MessageRow : Gtk.Box {
     private Message? message = null;
     private ulong handler = 0;
     private Gtk.Popover? menu = null;
+    private Gtk.Button? edit_item = null;
 
     public MessageRow (UserStore users) {
         Object (users: users);
@@ -57,11 +58,19 @@ public class Telegrama.MessageRow : Gtk.Box {
         });
         reply_box.add_controller (follow);
 
-        var secondary = new Gtk.GestureClick () { button = 3 };
+        // Capture phase: a selectable Gtk.Label brings its own menu offering
+        // cut, paste and delete on text that is not editable. Claiming the
+        // click before it reaches the label replaces that with ours.
+        var secondary = new Gtk.GestureClick () {
+            button = 3,
+            propagation_phase = Gtk.PropagationPhase.CAPTURE
+        };
         secondary.pressed.connect ((n, x, y) => {
-            if (message != null && message.editable) {
-                open_menu (x, y);
+            if (message == null || message.is_service) {
+                return;
             }
+            secondary.set_state (Gtk.EventSequenceState.CLAIMED);
+            open_menu (x, y);
         });
         add_controller (secondary);
     }
@@ -97,25 +106,56 @@ public class Telegrama.MessageRow : Gtk.Box {
         );
     }
 
+    private Gtk.Button menu_item (string label, string icon) {
+        var row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
+        row.append (new Gtk.Image.from_icon_name (icon));
+        row.append (new Gtk.Label (label) {
+            halign = Gtk.Align.START,
+            hexpand = true
+        });
+
+        var button = new Gtk.Button () {
+            child = row,
+            has_frame = false
+        };
+        button.add_css_class ("message-menu-item");
+        return button;
+    }
+
     private void open_menu (double x, double y) {
         if (menu == null) {
-            var edit = new Gtk.Button.with_label ("Edit") {
-                has_frame = false
-            };
-            edit.clicked.connect (() => {
+            var items = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            items.add_css_class ("message-menu");
+
+            var copy = menu_item ("Copy text", "edit-copy-symbolic");
+            copy.clicked.connect (() => {
+                menu.popdown ();
+                if (message != null) {
+                    Gdk.Display.get_default ().get_clipboard ().set_text (message.text);
+                }
+            });
+            items.append (copy);
+
+            edit_item = menu_item ("Edit", "document-edit-symbolic");
+            edit_item.clicked.connect (() => {
                 menu.popdown ();
                 if (message != null) {
                     edit_requested (message);
                 }
             });
+            items.append (edit_item);
 
             menu = new Gtk.Popover () {
-                child = edit,
+                child = items,
                 has_arrow = false,
                 autohide = true
             };
+            menu.add_css_class ("message-menu-popover");
             menu.set_parent (this);
         }
+
+        // Editing is only ours to offer on our own text.
+        edit_item.visible = message != null && message.editable;
 
         menu.set_pointing_to ({ (int) x, (int) y, 1, 1 });
         menu.popup ();
