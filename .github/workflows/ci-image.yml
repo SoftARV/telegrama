@@ -1,9 +1,12 @@
 name: CI image
 
+# Any branch, not just main: workflow_dispatch is only available once a workflow
+# is on the default branch, so a main-only trigger cannot bootstrap itself. Note
+# that :latest is shared, so a branch editing the Dockerfile replaces the image
+# main's CI pulls.
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     paths:
       - ci/Dockerfile
       - .github/workflows/ci-image.yml
