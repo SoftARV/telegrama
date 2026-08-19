@@ -1,5 +1,6 @@
 public errordomain Telegrama.Td.ClientError {
     CLOSED,
+    NOT_FOUND,
     REMOTE,
 }
 
@@ -21,7 +22,7 @@ public class Telegrama.Td.Client : Object {
     private int client_id = 0;
     private Thread<void>? receiver = null;
     private MainContext context = MainContext.ref_thread_default ();
-    private AsyncQueue<Json.Object> inbox = new AsyncQueue<Json.Object> ();
+    private AsyncQueue<Json.Node> inbox = new AsyncQueue<Json.Node> ();
     private HashTable<string, Pending> pending = new HashTable<string, Pending> (str_hash, str_equal);
     private int running = 0;
     private int drain_scheduled = 0;
@@ -115,10 +116,15 @@ public class Telegrama.Td.Client : Object {
 
         Json.Object response = waiting.response;
         if (response.get_string_member ("@type") == "error") {
-            throw new ClientError.REMOTE ("%s: %s (%d)".printf (
-                method,
-                response.get_string_member ("message"),
-                (int) response.get_int_member ("code")));
+            var code = (int) response.get_int_member ("code");
+            var detail = "%s: %s (%d)".printf (method, response.get_string_member ("message"), code);
+
+            // 404 is how TDLib says "nothing more to give", which several callers
+            // treat as a normal end rather than a failure.
+            if (code == 404) {
+                throw new ClientError.NOT_FOUND (detail);
+            }
+            throw new ClientError.REMOTE (detail);
         }
 
         return response;
@@ -151,15 +157,19 @@ public class Telegrama.Td.Client : Object {
                 continue;
             }
 
-            unowned Json.Node? root = parser.get_root ();
+            // json-glib refcounts with grefcount, which is deliberately NOT
+            // atomic, so one object must never be referenced from two threads.
+            // steal_root hands the whole tree over: the parser lets go, nothing
+            // here takes a reference of its own, and the main thread ends up its
+            // only owner. Taking an owned Json.Object anywhere in this loop
+            // would put the counter back in the hands of two threads.
+            var root = parser.steal_root ();
             if (root == null || root.get_node_type () != Json.NodeType.OBJECT) {
                 continue;
             }
 
-            // Ref'd out of the parser so the next load cannot free it under us.
-            Json.Object body = root.get_object ();
-            var last = is_closed (body);
-            inbox.push (body);
+            var last = is_closed (root.get_object ());
+            inbox.push ((owned) root);
 
             if (AtomicInt.compare_and_exchange (ref drain_scheduled, 0, 1)) {
                 var source = new IdleSource ();
@@ -198,8 +208,10 @@ public class Telegrama.Td.Client : Object {
     private void drain () {
         AtomicInt.set (ref drain_scheduled, 0);
 
-        Json.Object? body = null;
-        while ((body = inbox.try_pop ()) != null) {
+        Json.Node? node = null;
+        while ((node = inbox.try_pop ()) != null) {
+            unowned Json.Object body = node.get_object ();
+
             // Before dispatch, not after: dispatching a close can start a new
             // client, and its first request must not be caught by this sweep.
             if (is_closed (body)) {
@@ -212,12 +224,17 @@ public class Telegrama.Td.Client : Object {
     // A closed client answers nothing further, so anything still waiting would
     // hang for the life of the process.
     private void fail_pending () {
-        var waiting = pending.get_values ();
+        // Reference every entry before clearing: get_values only borrows, and
+        // remove_all frees the values out from under the list.
+        var waiting = new GenericArray<Pending> ();
+        foreach (unowned Pending p in pending.get_values ()) {
+            waiting.add (p);
+        }
         pending.remove_all ();
 
-        foreach (unowned Pending p in waiting) {
-            p.response = null;
-            p.resume ();
+        for (var i = 0; i < waiting.length; i++) {
+            waiting[i].response = null;
+            waiting[i].resume ();
         }
     }
 

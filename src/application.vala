@@ -2,6 +2,7 @@ public class Telegrama.Application : Adw.Application {
 
     private Td.Client client;
     private AuthSession auth;
+    private ChatList chats;
     private Window? window = null;
     private bool closing = false;
 
@@ -23,6 +24,7 @@ public class Telegrama.Application : Adw.Application {
 
         client = new Td.Client ();
         auth = new AuthSession (client);
+        chats = new ChatList (client, auth);
         client.start ();
         auth.start.begin ();
 
@@ -42,7 +44,7 @@ public class Telegrama.Application : Adw.Application {
 
     protected override void activate () {
         if (window == null) {
-            window = new Window (this, auth);
+            window = new Window (this, auth, chats);
 
             // Closing has to wait for TDLib to acknowledge, otherwise the
             // database is left to recover on next launch.

@@ -30,6 +30,7 @@ blueprint_compiler = find_program('blueprint-compiler')
 blueprint_files = {
   'window.ui': 'ui/window.blp',
   'login-view.ui': 'ui/login-view.blp',
+  'chat-row.ui': 'ui/chat-row.blp',
 }
 
 blueprints = []
@@ -54,10 +55,14 @@ sources = files(
   'application.vala',
   'td/client.vala',
   'model/auth.vala',
+  'model/chat.vala',
+  'model/chat-list.vala',
   'ui/window.vala',
   'ui/qr-code.vala',
+  'ui/chat-row.vala',
   'ui/login-view.vala',
   'util/keyring.vala',
+  'util/dates.vala',
 )
 
 executable('telegrama',

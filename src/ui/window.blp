@@ -20,22 +20,50 @@ template $TelegramaWindow : Adw.ApplicationWindow {
       StackPage {
         name: "main";
 
-        child: Adw.ToolbarView {
-          [top]
-          Adw.HeaderBar {
-            [end]
-            MenuButton {
-              icon-name: "open-menu-symbolic";
-              menu-model: primary_menu;
-              primary: true;
-              tooltip-text: "Main Menu";
-            }
-          }
+        child: Adw.NavigationSplitView split {
+          min-sidebar-width: 260;
+          max-sidebar-width: 380;
 
-          content: Adw.StatusPage {
-            icon-name: "chat-message-new-symbolic";
-            title: "Signed in";
-            description: "The chat list arrives in phase 2.";
+          sidebar: Adw.NavigationPage {
+            title: "Chats";
+
+            child: Adw.ToolbarView {
+              [top]
+              Adw.HeaderBar {
+                [end]
+                MenuButton {
+                  icon-name: "open-menu-symbolic";
+                  menu-model: primary_menu;
+                  primary: true;
+                  tooltip-text: "Main Menu";
+                }
+              }
+
+              content: ScrolledWindow chat_scroll {
+                hscrollbar-policy: never;
+
+                child: ListView chat_view {
+                  styles [
+                    "navigation-sidebar",
+                  ]
+                };
+              };
+            };
+          };
+
+          content: Adw.NavigationPage {
+            title: "Telegrama";
+
+            child: Adw.ToolbarView {
+              [top]
+              Adw.HeaderBar {}
+
+              content: Adw.StatusPage placeholder {
+                icon-name: "chat-message-new-symbolic";
+                title: "Select a chat";
+                description: "Message history arrives in phase 3.";
+              };
+            };
           };
         };
       }

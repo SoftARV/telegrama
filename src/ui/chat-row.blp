@@ -1,0 +1,77 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TelegramaChatRow : Box {
+  spacing: 12;
+  margin-top: 6;
+  margin-bottom: 6;
+
+  Adw.Avatar avatar {
+    size: 40;
+    show-initials: true;
+    valign: center;
+  }
+
+  Box {
+    orientation: vertical;
+    spacing: 2;
+    hexpand: true;
+    valign: center;
+
+    Box {
+      spacing: 6;
+
+      Label title_label {
+        hexpand: true;
+        halign: start;
+        ellipsize: end;
+        single-line-mode: true;
+      }
+
+      Label time_label {
+        halign: end;
+
+        styles [
+          "dim-label",
+          "caption",
+        ]
+      }
+    }
+
+    Box {
+      spacing: 6;
+
+      Label preview_label {
+        hexpand: true;
+        halign: start;
+        ellipsize: end;
+        single-line-mode: true;
+
+        styles [
+          "dim-label",
+          "caption",
+        ]
+      }
+
+      Image pin_icon {
+        icon-name: "view-pin-symbolic";
+        halign: end;
+        valign: center;
+        pixel-size: 12;
+
+        styles [
+          "dim-label",
+        ]
+      }
+
+      Label unread_label {
+        halign: end;
+        valign: center;
+
+        styles [
+          "unread-badge",
+        ]
+      }
+    }
+  }
+}
