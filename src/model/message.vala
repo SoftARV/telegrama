@@ -23,6 +23,12 @@ public class Telegrama.Message : Object {
     // Kept whole so the row can re-render when a spoiler is revealed, rather
     // than baking markup at load time.
     public Json.Object? formatted { get; set; default = null; }
+
+    // Same-chat replies arrive as a bare message id, so the quoted text is
+    // resolved afterwards and filled in here.
+    public int64 reply_to_id { get; set; default = 0; }
+    public int64 reply_sender_id { get; set; default = 0; }
+    public string reply_preview { get; set; default = ""; }
     public bool spoilers_revealed { get; set; default = false; }
 
     public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date,

@@ -6,6 +6,9 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Adw.Avatar avatar;
     [GtkChild] private unowned Gtk.Box bubble;
     [GtkChild] private unowned Gtk.Label sender_label;
+    [GtkChild] private unowned Gtk.Box reply_box;
+    [GtkChild] private unowned Gtk.Label reply_sender;
+    [GtkChild] private unowned Gtk.Label reply_text;
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
 
@@ -22,7 +25,7 @@ public class Telegrama.MessageRow : Gtk.Box {
         // A sender's name, colour and picture usually arrive after the messages
         // that need them, so the row repaints when its own sender turns up.
         users.changed.connect ((id) => {
-            if (message != null && message.sender_id == id) {
+            if (message != null && (message.sender_id == id || message.reply_sender_id == id)) {
                 refresh ();
             }
         });
@@ -98,6 +101,18 @@ public class Telegrama.MessageRow : Gtk.Box {
             // than picking one.
             var colour = users.colour_for (message.sender_id);
             sender_label.label = @"<span foreground=\"$colour\">$(Markup.escape_text (name))</span>";
+        }
+
+        reply_box.visible = message.reply_to_id != 0;
+        if (reply_box.visible) {
+            var replied = users.name_for (message.reply_sender_id);
+            reply_sender.visible = replied != "";
+            if (replied != "") {
+                var tint = users.colour_for (message.reply_sender_id);
+                reply_sender.label =
+                    @"<span foreground=\"$tint\">$(Markup.escape_text (replied))</span>";
+            }
+            reply_text.label = message.reply_preview;
         }
 
         avatar.visible = attributed;

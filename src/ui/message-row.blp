@@ -2,8 +2,8 @@ using Gtk 4.0;
 using Adw 1;
 
 template $TelegramaMessageRow : Box {
-  // Vertical so the bubble is allocated the full row width and its halign has
-  // room to mean something; a horizontal box would pack it at natural width.
+  // Vertical so the line below is allocated the full row width and its halign
+  // has room to mean something; a horizontal box would pack it at natural width.
   orientation: vertical;
   margin-start: 12;
   margin-end: 12;
@@ -43,27 +43,61 @@ template $TelegramaMessageRow : Box {
         "bubble",
       ]
 
-    Label sender_label {
-      use-markup: true;
-      halign: start;
-      xalign: 0;
-      ellipsize: end;
-      single-line-mode: true;
+      Label sender_label {
+        use-markup: true;
+        halign: start;
+        xalign: 0;
+        ellipsize: end;
+        single-line-mode: true;
 
-      styles [
-        "caption-heading",
-      ]
-    }
+        styles [
+          "caption-heading",
+        ]
+      }
 
-    Label text_label {
-      halign: start;
-      xalign: 0;
-      wrap: true;
-      wrap-mode: word_char;
-      selectable: true;
-      use-markup: true;
-      max-width-chars: 48;
-    }
+      Box reply_box {
+        orientation: vertical;
+        visible: false;
+        margin-bottom: 2;
+
+        styles [
+          "reply-quote",
+        ]
+
+        Label reply_sender {
+          use-markup: true;
+          halign: start;
+          xalign: 0;
+          ellipsize: end;
+          single-line-mode: true;
+
+          styles [
+            "caption-heading",
+          ]
+        }
+
+        Label reply_text {
+          halign: start;
+          xalign: 0;
+          ellipsize: end;
+          single-line-mode: true;
+          max-width-chars: 40;
+
+          styles [
+            "caption",
+          ]
+        }
+      }
+
+      Label text_label {
+        halign: start;
+        xalign: 0;
+        wrap: true;
+        wrap-mode: word_char;
+        selectable: true;
+        use-markup: true;
+        max-width-chars: 48;
+      }
 
       Label time_label {
         halign: end;

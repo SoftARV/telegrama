@@ -28,3 +28,9 @@
 .message-list {
     background: none;
 }
+
+.reply-quote {
+    border-left: 2px solid alpha(currentColor, 0.4);
+    padding-left: 6px;
+    opacity: 0.85;
+}
