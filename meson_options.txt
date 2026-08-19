@@ -1,0 +1,11 @@
+option('api_id',
+  type: 'integer',
+  value: 0,
+  description: 'Telegram api_id, from https://my.telegram.org',
+)
+
+option('api_hash',
+  type: 'string',
+  value: '',
+  description: 'Telegram api_hash, from https://my.telegram.org',
+)
