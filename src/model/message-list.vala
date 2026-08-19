@@ -4,6 +4,11 @@ public class Telegrama.MessageList : Object {
 
     private const int PAGE = 50;
 
+    // A first page can be a single message. Below this, keep asking rather than
+    // waiting for a scroll that will never come in a view with nothing to
+    // scroll.
+    private const uint MIN_HISTORY = 30;
+
     public Td.Client client { get; construct; }
     public UserStore users { get; construct; }
     public ListStore store { get; construct; }
@@ -111,15 +116,25 @@ public class Telegrama.MessageList : Object {
             added = absorb (response.get_array_member ("messages"));
         }
 
+        // Released before the signals: a handler that reacts by asking for more
+        // would otherwise be turned away by the guard above, and with nothing
+        // left to move the adjustment, nothing would ever ask again.
+        loading = false;
+
         if (added == 0) {
             exhausted = true;
-        } else if (from_message_id != 0) {
+            return;
+        }
+
+        if (from_message_id != 0) {
             prepended ();
         } else {
             appended ();
         }
 
-        loading = false;
+        if (!exhausted && store.get_n_items () < MIN_HISTORY) {
+            load_from.begin (((Message) store.get_item (0)).id);
+        }
     }
 
     // getChatHistory answers newest first; the store runs oldest first.
