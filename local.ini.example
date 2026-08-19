@@ -1,0 +1,8 @@
+# Copy to local.ini and fill in your own credentials from my.telegram.org.
+# local.ini is gitignored, and lives outside build/ so a clean rebuild keeps it.
+#
+#   meson setup build --native-file local.ini
+#
+[project options]
+api_id = 0
+api_hash = ''
