@@ -11,6 +11,7 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label reply_text;
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
+    [GtkChild] private unowned Gtk.Label state_label;
 
     public signal void jump (int64 message_id);
 
@@ -156,5 +157,17 @@ public class Telegrama.MessageRow : Gtk.Box {
         }
 
         time_label.label = new DateTime.from_unix_local (message.date).format ("%H:%M");
+
+        // Only our own messages have a delivery state worth reporting.
+        state_label.visible = message.is_outgoing;
+        if (message.is_outgoing) {
+            if (message.failed) {
+                state_label.label = "⚠";
+            } else if (message.sending) {
+                state_label.label = "🕓";
+            } else {
+                state_label.label = message.read ? "✓✓" : "✓";
+            }
+        }
     }
 }

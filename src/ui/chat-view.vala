@@ -7,6 +7,8 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.Stack stack;
     [GtkChild] private unowned Gtk.ScrolledWindow scroll;
     [GtkChild] private unowned Gtk.ListView list;
+    [GtkChild] private unowned Gtk.Entry entry;
+    [GtkChild] private unowned Gtk.Button send;
 
     public MessageList messages { get; construct; }
 
@@ -33,7 +35,15 @@ public class Telegrama.ChatView : Adw.Bin {
 
         factory.bind.connect ((object) => {
             var item = (Gtk.ListItem) object;
-            ((MessageRow) item.child).bind ((Message) item.item);
+            var message = (Message) item.item;
+
+            ((MessageRow) item.child).bind (message);
+
+            // Read state follows what actually reaches the screen rather than
+            // what happens to be loaded.
+            if (!message.is_outgoing) {
+                messages.saw (message.id);
+            }
         });
 
         factory.unbind.connect ((object) => {
@@ -43,7 +53,11 @@ public class Telegrama.ChatView : Adw.Bin {
         list.factory = factory;
         list.model = new Gtk.NoSelection (messages.store);
 
+        entry.activate.connect (deliver);
+        send.clicked.connect (deliver);
+
         messages.notify["chat"].connect (() => {
+            entry.text = "";
             follow = true;
             anchor = -1;
             stack.visible_child_name = messages.chat == null ? "empty" : "messages";
@@ -87,6 +101,19 @@ public class Telegrama.ChatView : Adw.Bin {
                 messages.load_older ();
             }
         });
+    }
+
+    private void deliver () {
+        var text = entry.text;
+        if (text.strip () == "") {
+            return;
+        }
+
+        entry.text = "";
+
+        // Sending scrolls back down: it would be odd to send and not see it.
+        follow = true;
+        messages.send (text);
     }
 
     private void jump_to (int64 message_id) {

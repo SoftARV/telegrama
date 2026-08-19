@@ -56,7 +56,9 @@ template $TelegramaWindow : Adw.ApplicationWindow {
 
             child: Adw.ToolbarView {
               [top]
-              Adw.HeaderBar {}
+              Adw.HeaderBar {
+                title-widget: Adw.WindowTitle chat_title {};
+              }
 
               content: Adw.Bin conversation_slot {};
             };

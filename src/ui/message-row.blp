@@ -99,13 +99,25 @@ template $TelegramaMessageRow : Box {
         max-width-chars: 48;
       }
 
-      Label time_label {
+      Box {
         halign: end;
+        spacing: 4;
 
-        styles [
-          "caption",
-          "dim-label",
-        ]
+        Label time_label {
+          styles [
+            "caption",
+            "dim-label",
+          ]
+        }
+
+        Label state_label {
+          visible: false;
+
+          styles [
+            "caption",
+            "dim-label",
+          ]
+        }
       }
     }
   }

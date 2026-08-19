@@ -8,6 +8,7 @@ public class Telegrama.Window : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.ScrolledWindow chat_scroll;
     [GtkChild] private unowned Gtk.ListView chat_view;
     [GtkChild] private unowned Adw.NavigationPage content_page;
+    [GtkChild] private unowned Adw.WindowTitle chat_title;
     [GtkChild] private unowned Adw.Bin conversation_slot;
 
     public AuthSession auth { get; construct; }
@@ -34,6 +35,10 @@ public class Telegrama.Window : Adw.ApplicationWindow {
         auth.notify["stage"].connect (sync_stage);
         auth.failed.connect ((message) => {
             toasts.add_toast (new Adw.Toast (message));
+        });
+
+        messages.notify["activity"].connect (() => {
+            chat_title.subtitle = messages.activity;
         });
 
         setup_chat_list ();
@@ -66,6 +71,7 @@ public class Telegrama.Window : Adw.ApplicationWindow {
             var chat = selection.selected_item as Chat;
 
             content_page.title = chat == null ? "Telegrama" : chat.title;
+            chat_title.title = chat == null ? "Telegrama" : chat.title;
             messages.open (chat);
 
             if (chat != null) {
