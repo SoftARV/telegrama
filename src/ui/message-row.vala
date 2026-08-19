@@ -12,6 +12,8 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
 
+    public signal void jump (int64 message_id);
+
     public UserStore users { get; construct; }
 
     private Message? message = null;
@@ -40,6 +42,14 @@ public class Telegrama.MessageRow : Gtk.Box {
             }
         });
         text_label.add_controller (reveal);
+
+        var follow = new Gtk.GestureClick ();
+        follow.released.connect (() => {
+            if (message != null && message.reply_to_id != 0) {
+                jump (message.reply_to_id);
+            }
+        });
+        reply_box.add_controller (follow);
     }
 
     public void bind (Message message) {
@@ -101,6 +111,12 @@ public class Telegrama.MessageRow : Gtk.Box {
             // than picking one.
             var colour = users.colour_for (message.sender_id);
             sender_label.label = @"<span foreground=\"$colour\">$(Markup.escape_text (name))</span>";
+        }
+
+        bubble.remove_css_class ("flash-a");
+        bubble.remove_css_class ("flash-b");
+        if (message.highlighted) {
+            bubble.add_css_class (message.flash_variant ? "flash-b" : "flash-a");
         }
 
         reply_box.visible = message.reply_to_id != 0;

@@ -9,6 +9,9 @@ public class Telegrama.MessageList : Object {
     // scroll.
     private const uint MIN_HISTORY = 30;
 
+    // Pages to page back through before giving up on reaching a message.
+    private const int PAGE_LIMIT = 12;
+
     public Td.Client client { get; construct; }
     public UserStore users { get; construct; }
     public ListStore store { get; construct; }
@@ -58,6 +61,38 @@ public class Telegrama.MessageList : Object {
         });
 
         load_from.begin (0);
+    }
+
+    public bool position_of (int64 message_id, out uint position) {
+        position = 0;
+
+        var target = by_id.lookup (message_id.to_string ());
+        return target != null && store.find (target, out position);
+    }
+
+    // Paging back until the message turns up keeps the store one contiguous
+    // run. Loading a window around it instead would be quicker but would leave
+    // a hole in the middle of the history.
+    public async bool reach (int64 message_id) {
+        uint position;
+
+        for (var attempt = 0; attempt < PAGE_LIMIT; attempt++) {
+            if (position_of (message_id, out position)) {
+                return true;
+            }
+            if (exhausted || store.get_n_items () == 0) {
+                return false;
+            }
+
+            var before = store.get_n_items ();
+            yield load_from (((Message) store.get_item (0)).id);
+
+            if (store.get_n_items () == before) {
+                return false;
+            }
+        }
+
+        return position_of (message_id, out position);
     }
 
     public void load_older () {

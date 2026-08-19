@@ -31,6 +31,13 @@ public class Telegrama.Message : Object {
     public string reply_preview { get; set; default = ""; }
     public bool spoilers_revealed { get; set; default = false; }
 
+    // Set briefly after being jumped to, so the eye can find it.
+    public bool highlighted { get; set; default = false; }
+
+    // Alternates per jump so the style actually changes and the animation
+    // restarts rather than being ignored as already-applied.
+    public bool flash_variant { get; set; default = false; }
+
     public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date,
                     bool is_media, bool is_service, bool in_group) {
         Object (id: id, sender_id: sender_id, is_outgoing: is_outgoing, date: date,

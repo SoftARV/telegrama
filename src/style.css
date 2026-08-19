@@ -34,3 +34,25 @@
     padding-left: 6px;
     opacity: 0.85;
 }
+
+/* brightness() works on whatever the bubble already is, so one set of frames
+   covers both incoming and outgoing. Two identical animations under different
+   names because re-adding a class that is already applied does not restart an
+   animation; only a change of animation-name is guaranteed to. */
+@keyframes message-flash-a {
+    0%, 33%, 66%, 100% { filter: brightness(1); }
+    16%, 50%, 83% { filter: brightness(1.5); }
+}
+
+@keyframes message-flash-b {
+    0%, 33%, 66%, 100% { filter: brightness(1); }
+    16%, 50%, 83% { filter: brightness(1.5); }
+}
+
+.bubble.flash-a {
+    animation: message-flash-a 1.5s ease-in-out;
+}
+
+.bubble.flash-b {
+    animation: message-flash-b 1.5s ease-in-out;
+}
