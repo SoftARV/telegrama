@@ -153,6 +153,27 @@ public class Telegrama.MessageList : Object {
         });
     }
 
+    // revoke removes it for everyone; without it the message only goes from our
+    // own history. TDLib forces revoke in supergroups, channels and secret chats
+    // regardless of what is passed.
+    public void discard (int64 message_id, bool revoke) {
+        if (chat == null) {
+            return;
+        }
+
+        var target = chat.id;
+        client.send ("deleteMessages", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("message_ids");
+            b.begin_array ();
+            b.add_int_value (message_id);
+            b.end_array ();
+            b.set_member_name ("revoke");
+            b.add_boolean_value (revoke);
+        });
+    }
+
     // Walked from the end, since editing almost always means the last thing
     // said rather than something further back.
     public Message? last_editable () {

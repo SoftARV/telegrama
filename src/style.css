@@ -146,3 +146,8 @@ scrollbar.composer-bar slider:hover {
 popover.message-menu-popover > contents {
     padding: 4px;
 }
+
+.message-menu-item.destructive,
+.message-menu-item.destructive label {
+    color: @destructive_color;
+}

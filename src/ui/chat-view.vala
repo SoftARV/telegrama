@@ -243,6 +243,16 @@ public class Telegrama.ChatView : Adw.Bin {
             });
             items.append (menu_edit);
 
+            var remove = menu_item ("Delete", "user-trash-symbolic");
+            remove.add_css_class ("destructive");
+            remove.clicked.connect (() => {
+                menu.popdown ();
+                if (menu_target != null) {
+                    confirm_delete (menu_target);
+                }
+            });
+            items.append (remove);
+
             menu = new Gtk.Popover () {
                 child = items,
                 has_arrow = false,
@@ -265,6 +275,41 @@ public class Telegrama.ChatView : Adw.Bin {
 
         menu.set_pointing_to ({ (int) here.x, (int) here.y, 1, 1 });
         menu.popup ();
+    }
+
+    // Deleting cannot be undone and reaches other people's clients, so it asks
+    // first. Whether to take it back from everyone is a checkbox rather than a
+    // third button: it is a qualifier on the same action, not a separate one.
+    private void confirm_delete (Message target) {
+        var dialog = new Adw.AlertDialog (
+            "Delete message?",
+            "This cannot be undone."
+        );
+
+        Gtk.CheckButton? everyone = null;
+        if (target.is_outgoing) {
+            everyone = new Gtk.CheckButton.with_label ("Also delete for everyone") {
+                active = true,
+                margin_top = 6
+            };
+            dialog.set_extra_child (everyone);
+        }
+
+        dialog.add_response ("cancel", "Cancel");
+        dialog.add_response ("delete", "Delete");
+        dialog.set_response_appearance ("delete", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_close_response ("cancel");
+        dialog.set_default_response ("cancel");
+
+        var id = target.id;
+        dialog.response.connect ((answer) => {
+            if (answer != "delete") {
+                return;
+            }
+            messages.discard (id, everyone != null && everyone.active);
+        });
+
+        dialog.present (this);
     }
 
     private void begin_edit (Message target) {
