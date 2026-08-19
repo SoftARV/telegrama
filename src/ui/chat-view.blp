@@ -21,15 +21,39 @@ template $TelegramaChatView : Adw.Bin {
       child: Box {
         orientation: vertical;
 
-        ScrolledWindow scroll {
-          hscrollbar-policy: never;
+        Overlay {
           vexpand: true;
 
-          child: ListView list {
-            styles [
-              "message-list",
-            ]
+          child: ScrolledWindow scroll {
+            hscrollbar-policy: never;
+
+            child: ListView list {
+              styles [
+                "message-list",
+              ]
+            };
           };
+
+          [overlay]
+          Revealer jump_down {
+            halign: end;
+            valign: end;
+            margin-end: 14;
+            margin-bottom: 10;
+            transition-type: crossfade;
+            reveal-child: false;
+            can-target: true;
+
+            child: Button to_bottom_button {
+              icon-name: "go-down-symbolic";
+              tooltip-text: "Go to the latest message";
+
+              styles [
+                "circular",
+                "jump-down",
+              ]
+            };
+          }
         }
 
         Box {

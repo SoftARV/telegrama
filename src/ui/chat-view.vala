@@ -9,6 +9,8 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.ListView list;
     [GtkChild] private unowned Gtk.Entry entry;
     [GtkChild] private unowned Gtk.Button send;
+    [GtkChild] private unowned Gtk.Revealer jump_down;
+    [GtkChild] private unowned Gtk.Button to_bottom_button;
 
     public MessageList messages { get; construct; }
 
@@ -57,9 +59,14 @@ public class Telegrama.ChatView : Adw.Bin {
         entry.activate.connect (deliver);
         send.clicked.connect (deliver);
 
+        to_bottom_button.clicked.connect (() => {
+            set_follow (true);
+            to_bottom ();
+        });
+
         messages.notify["chat"].connect (() => {
             entry.text = "";
-            follow = true;
+            set_follow (true);
             anchor = -1;
             stack.visible_child_name = messages.chat == null ? "empty" : "messages";
         });
@@ -102,7 +109,7 @@ public class Telegrama.ChatView : Adw.Bin {
 
             var adjustment = scroll.vadjustment;
 
-            follow = adjustment.upper - (adjustment.value + adjustment.page_size) < EDGE;
+            set_follow (adjustment.upper - (adjustment.value + adjustment.page_size) < EDGE);
 
             // Only page back when there is something to scroll. A view whose
             // content does not fill it sits at value 0, which otherwise reads
@@ -122,7 +129,7 @@ public class Telegrama.ChatView : Adw.Bin {
         entry.text = "";
 
         // Sending scrolls back down: it would be odd to send and not see it.
-        follow = true;
+        set_follow (true);
         messages.send (text);
     }
 
@@ -144,7 +151,7 @@ public class Telegrama.ChatView : Adw.Bin {
         // Paging back to find it will have armed the anchor, which would pull
         // the view straight back to where the reader was.
         anchor = -1;
-        follow = false;
+        set_follow (false);
 
         list.scroll_to (position, Gtk.ListScrollFlags.NONE, null);
 
@@ -182,6 +189,13 @@ public class Telegrama.ChatView : Adw.Bin {
     // adjustment's upper lags behind rows that have not been measured yet, so
     // computing a position from it lands short and, worse, can look like a
     // scroll to the top.
+    // One place, so the button showing the way back always matches whether the
+    // view is actually pinned to the bottom.
+    private void set_follow (bool value) {
+        follow = value;
+        jump_down.reveal_child = !value;
+    }
+
     private void to_bottom () {
         var count = messages.store.get_n_items ();
         if (count == 0) {
