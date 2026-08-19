@@ -77,9 +77,12 @@ public class Telegrama.ChatView : Adw.Bin {
         // keeps the reader where they were instead of throwing them upward.
         messages.prepended.connect (() => {
             anchor = scroll.vadjustment.upper - scroll.vadjustment.value;
+            printerr ("PREPENDED anchor=%.0f\n", anchor);
         });
 
         messages.appended.connect (() => {
+            printerr ("APPENDED follow=%s items=%u\n", follow.to_string (),
+                messages.store.get_n_items ());
             if (follow) {
                 to_bottom ();
             }
@@ -116,6 +119,8 @@ public class Telegrama.ChatView : Adw.Bin {
             // content does not fill it sits at value 0, which otherwise reads
             // as "the reader is at the top, fetch more".
             if (adjustment.upper > adjustment.page_size && adjustment.value < EDGE) {
+                printerr ("LOADOLDER upper=%.0f value=%.0f page=%.0f\n",
+                    adjustment.upper, adjustment.value, adjustment.page_size);
                 messages.load_older ();
             }
         });
@@ -130,6 +135,7 @@ public class Telegrama.ChatView : Adw.Bin {
         entry.text = "";
 
         // Sending scrolls back down: it would be odd to send and not see it.
+        printerr ("DELIVER\n");
         set_follow (true);
         messages.send (text);
     }
@@ -189,6 +195,12 @@ public class Telegrama.ChatView : Adw.Bin {
     // One place, so the button showing the way back always matches whether the
     // view is actually pinned to the bottom.
     private void set_follow (bool value) {
+        if (follow != value) {
+            var a = scroll.vadjustment;
+            printerr ("FOLLOW %s->%s upper=%.0f value=%.0f page=%.0f adjusting=%s\n",
+                follow.to_string (), value.to_string (), a.upper, a.value, a.page_size,
+                adjusting.to_string ());
+        }
         follow = value;
         jump_down.reveal_child = !value;
     }
@@ -201,6 +213,10 @@ public class Telegrama.ChatView : Adw.Bin {
     // are measured and upper grows.
     private void to_bottom () {
         var adjustment = scroll.vadjustment;
+
+        printerr ("TOBOTTOM upper=%.0f value=%.0f page=%.0f -> %.0f\n",
+            adjustment.upper, adjustment.value, adjustment.page_size,
+            adjustment.upper - adjustment.page_size);
 
         adjusting = true;
         adjustment.value = adjustment.upper - adjustment.page_size;
