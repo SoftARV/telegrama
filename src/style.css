@@ -75,3 +75,51 @@ button.jump-down:hover {
 button.jump-down:active {
     background-color: mix(@popover_bg_color, @window_fg_color, 0.16);
 }
+
+/* A TextView in a ScrolledWindow has none of an Entry's chrome, so it borrows
+   the look rather than sitting bare against the window. */
+.composer {
+    background-color: @view_bg_color;
+    border: 1px solid alpha(@window_fg_color, 0.15);
+    border-radius: 12px;
+}
+
+.composer textview,
+.composer textview text {
+    background: none;
+}
+
+.composer:focus-within {
+    border-color: @accent_color;
+}
+
+/* Overlaid rather than in the layout, so it is styled down to a hint rather
+   than a control: 3px, faint, and inset well clear of the text. */
+scrollbar.composer-bar {
+    background: none;
+    border: none;
+    min-width: 0;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-right: 2px;
+}
+
+scrollbar.composer-bar trough {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+scrollbar.composer-bar slider {
+    min-width: 3px;
+    margin: 0;
+    border: none;
+    border-radius: 3px;
+    background-color: alpha(currentColor, 0.22);
+}
+
+scrollbar.composer-bar slider:hover {
+    background-color: alpha(currentColor, 0.42);
+}

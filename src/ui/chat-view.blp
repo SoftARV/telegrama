@@ -116,10 +116,62 @@ template $TelegramaChatView : Adw.Bin {
           margin-top: 6;
           margin-bottom: 8;
 
-          Entry entry {
+          Overlay {
             hexpand: true;
-            placeholder-text: "Message";
-            input-hints: emoji | spellcheck;
+            valign: end;
+
+            child: ScrolledWindow composer_scroll {
+              hscrollbar-policy: never;
+
+              // Not automatic: that reserves room for a scrollbar and gives the
+              // composer a floor of two lines however little it holds.
+              // min-content-height cannot lower it; only the policy can.
+              vscrollbar-policy: external;
+
+              propagate-natural-height: true;
+              min-content-height: 0;
+              max-content-height: 160;
+
+              styles [
+                "composer",
+              ]
+
+              child: TextView entry {
+                wrap-mode: word_char;
+                accepts-tab: false;
+                top-margin: 8;
+                bottom-margin: 8;
+                left-margin: 10;
+                right-margin: 10;
+                input-hints: emoji | spellcheck;
+              };
+            };
+
+            [overlay]
+            Scrollbar composer_bar {
+              orientation: vertical;
+              halign: end;
+              valign: fill;
+              visible: false;
+
+              styles [
+                "composer-bar",
+              ]
+            }
+
+            [overlay]
+            Label placeholder {
+              label: "Message";
+              halign: start;
+              valign: start;
+              margin-start: 11;
+              margin-top: 8;
+              can-target: false;
+
+              styles [
+                "dim-label",
+              ]
+            }
           }
 
           Button send {

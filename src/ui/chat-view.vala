@@ -7,7 +7,10 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.Stack stack;
     [GtkChild] private unowned Gtk.ScrolledWindow scroll;
     [GtkChild] private unowned Gtk.ListView list;
-    [GtkChild] private unowned Gtk.Entry entry;
+    [GtkChild] private unowned Gtk.TextView entry;
+    [GtkChild] private unowned Gtk.Label placeholder;
+    [GtkChild] private unowned Gtk.ScrolledWindow composer_scroll;
+    [GtkChild] private unowned Gtk.Scrollbar composer_bar;
     [GtkChild] private unowned Gtk.Button send;
     [GtkChild] private unowned Gtk.Revealer edit_banner;
     [GtkChild] private unowned Gtk.Label edit_preview;
@@ -62,13 +65,38 @@ public class Telegrama.ChatView : Adw.Bin {
         list.factory = factory;
         list.model = new Gtk.NoSelection (messages.store);
 
-        entry.activate.connect (deliver);
         send.clicked.connect (deliver);
+
+        // The composer's scrollbar policy is external, which is what keeps it
+        // from reserving two lines of height. External means no scrollbar of its
+        // own, so this is one, shown only once there is something to scroll.
+        composer_bar.adjustment = composer_scroll.vadjustment;
+        composer_scroll.vadjustment.changed.connect (() => {
+            var a = composer_scroll.vadjustment;
+            composer_bar.visible = a.upper > a.page_size + 1;
+        });
+
+        // A TextView has no placeholder of its own, so one is laid over it.
+        entry.buffer.changed.connect (() => {
+            placeholder.visible = entry.buffer.text == "";
+        });
 
         edit_cancel.clicked.connect (cancel_edit);
 
         var keys = new Gtk.EventControllerKey ();
         keys.key_pressed.connect ((keyval, code, state) => {
+            var shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
+
+            // Enter sends, shift+enter breaks the line. Returning false lets the
+            // TextView insert the newline itself rather than doing it by hand.
+            if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
+                if (shift) {
+                    return false;
+                }
+                deliver ();
+                return true;
+            }
+
             if (keyval == Gdk.Key.Escape && editing != null) {
                 cancel_edit ();
                 return true;
@@ -76,7 +104,7 @@ public class Telegrama.ChatView : Adw.Bin {
 
             // Up on an empty composer reaches for the last thing said, which is
             // what it almost always means.
-            if (keyval == Gdk.Key.Up && editing == null && entry.text == "") {
+            if (keyval == Gdk.Key.Up && editing == null && entry.buffer.text == "") {
                 var target = messages.last_editable ();
                 if (target != null) {
                     begin_edit (target);
@@ -165,19 +193,22 @@ public class Telegrama.ChatView : Adw.Bin {
         edit_preview.label = target.text.replace ("\n", " ").strip ();
         edit_banner.reveal_child = true;
 
-        entry.text = target.text;
+        entry.buffer.text = target.text;
         entry.grab_focus ();
-        entry.set_position (-1);
+
+        Gtk.TextIter end;
+        entry.buffer.get_end_iter (out end);
+        entry.buffer.place_cursor (end);
     }
 
     private void cancel_edit () {
         editing = null;
         edit_banner.reveal_child = false;
-        entry.text = "";
+        entry.buffer.text = "";
     }
 
     private void deliver () {
-        var text = entry.text;
+        var text = entry.buffer.text;
         if (text.strip () == "") {
             return;
         }
@@ -188,7 +219,7 @@ public class Telegrama.ChatView : Adw.Bin {
             return;
         }
 
-        entry.text = "";
+        entry.buffer.text = "";
 
         // Sending scrolls back down: it would be odd to send and not see it.
         set_follow (true);
