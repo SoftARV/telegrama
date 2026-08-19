@@ -31,6 +31,8 @@ blueprint_files = {
   'window.ui': 'ui/window.blp',
   'login-view.ui': 'ui/login-view.blp',
   'chat-row.ui': 'ui/chat-row.blp',
+  'message-row.ui': 'ui/message-row.blp',
+  'chat-view.ui': 'ui/chat-view.blp',
 }
 
 blueprints = []
@@ -57,12 +59,18 @@ sources = files(
   'model/auth.vala',
   'model/chat.vala',
   'model/chat-list.vala',
+  'model/message.vala',
+  'model/message-list.vala',
+  'model/user-store.vala',
   'ui/window.vala',
   'ui/qr-code.vala',
   'ui/chat-row.vala',
+  'ui/message-row.vala',
+  'ui/chat-view.vala',
   'ui/login-view.vala',
   'util/keyring.vala',
   'util/dates.vala',
+  'util/content.vala',
 )
 
 executable('telegrama',

@@ -7,21 +7,25 @@ public class Telegrama.Window : Adw.ApplicationWindow {
     [GtkChild] private unowned Adw.NavigationSplitView split;
     [GtkChild] private unowned Gtk.ScrolledWindow chat_scroll;
     [GtkChild] private unowned Gtk.ListView chat_view;
-    [GtkChild] private unowned Adw.StatusPage placeholder;
+    [GtkChild] private unowned Adw.NavigationPage content_page;
+    [GtkChild] private unowned Adw.Bin conversation_slot;
 
     public AuthSession auth { get; construct; }
     public ChatList chats { get; construct; }
+    public MessageList messages { get; construct; }
 
     // Not "settings": Gtk.Widget already has get_settings(), and a property of
     // that name would silently override it.
     public Settings prefs { get; construct; }
 
-    public Window (Gtk.Application app, AuthSession auth, ChatList chats) {
-        Object (application: app, auth: auth, chats: chats, prefs: new Settings (Config.APP_ID));
+    public Window (Gtk.Application app, AuthSession auth, ChatList chats, MessageList messages) {
+        Object (application: app, auth: auth, chats: chats, messages: messages,
+                prefs: new Settings (Config.APP_ID));
     }
 
     construct {
         login_slot.child = new LoginView (auth);
+        conversation_slot.child = new ChatView (messages);
 
         prefs.bind ("window-width", this, "default-width", SettingsBindFlags.DEFAULT);
         prefs.bind ("window-height", this, "default-height", SettingsBindFlags.DEFAULT);
@@ -60,15 +64,13 @@ public class Telegrama.Window : Adw.ApplicationWindow {
 
         selection.notify["selected-item"].connect (() => {
             var chat = selection.selected_item as Chat;
-            if (chat == null) {
-                placeholder.title = "Select a chat";
-                placeholder.description = "Message history arrives in phase 3.";
-                return;
-            }
 
-            placeholder.title = chat.title;
-            placeholder.description = "Message history arrives in phase 3.";
-            split.show_content = true;
+            content_page.title = chat == null ? "Telegrama" : chat.title;
+            messages.open (chat);
+
+            if (chat != null) {
+                split.show_content = true;
+            }
         });
 
         chat_view.factory = factory;
