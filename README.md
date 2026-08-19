@@ -1,4 +1,4 @@
-# telegram-native
+# telegrama
 
 A fast, low-memory native Telegram client for Linux.
 
