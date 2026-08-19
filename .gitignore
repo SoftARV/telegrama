@@ -1,0 +1,7 @@
+build/
+_build/
+subprojects/*/
+!subprojects/*.wrap
+.cache/
+*.swp
+CLAUDE.local.md
