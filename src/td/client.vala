@@ -9,6 +9,10 @@ public class Telegrama.Td.Client : Object {
 
     public signal void update (string type, Json.Object body);
 
+    // Distinguishes our own shutdown from TDLib closing under us, which is what
+    // a remote logout looks like.
+    public bool stopping { get; private set; default = false; }
+
     private class Pending {
         public SourceFunc resume;
         public Json.Object? response = null;
@@ -28,6 +32,13 @@ public class Telegrama.Td.Client : Object {
             return;
         }
 
+        // A previous client may have closed on its own; its thread has left the
+        // loop already but still needs joining before we replace it.
+        if (receiver != null) {
+            receiver.join ();
+            receiver = null;
+        }
+
         TDJson.execute ("""{"@type":"setLogVerbosityLevel","new_verbosity_level":1}""");
         client_id = TDJson.create_client_id ();
         receiver = new Thread<void> ("td-receive", receive_loop);
@@ -37,6 +48,8 @@ public class Telegrama.Td.Client : Object {
         if (AtomicInt.get (ref running) == 0) {
             return;
         }
+
+        stopping = true;
 
         var closed = false;
         var handler = update.connect ((type, body) => {
@@ -159,7 +172,10 @@ public class Telegrama.Td.Client : Object {
 
             // Nothing follows authorizationStateClosed, and staying parked in
             // receive would cost stop() a full timeout before the thread joins.
+            // TDLib needs a fresh instance after this, so clear running and let
+            // start() build one.
             if (last) {
+                AtomicInt.set (ref running, 0);
                 break;
             }
         }
@@ -184,7 +200,24 @@ public class Telegrama.Td.Client : Object {
 
         Json.Object? body = null;
         while ((body = inbox.try_pop ()) != null) {
+            // Before dispatch, not after: dispatching a close can start a new
+            // client, and its first request must not be caught by this sweep.
+            if (is_closed (body)) {
+                fail_pending ();
+            }
             dispatch (body);
+        }
+    }
+
+    // A closed client answers nothing further, so anything still waiting would
+    // hang for the life of the process.
+    private void fail_pending () {
+        var waiting = pending.get_values ();
+        pending.remove_all ();
+
+        foreach (unowned Pending p in waiting) {
+            p.response = null;
+            p.resume ();
         }
     }
 

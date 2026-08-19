@@ -29,6 +29,13 @@ public class Telegrama.AuthSession : Object {
     // phone form, so a later state change does not drag them back.
     private bool qr_preferred = true;
 
+    // apply() is reached twice on startup, once from the update TDLib emits when
+    // the client appears and once from the getAuthorizationState reply. Both of
+    // these would otherwise send their request a second time, and TDLib answers
+    // the duplicate with a 400.
+    private bool configuring = false;
+    private bool requesting_qr = false;
+
     public signal void failed (string message);
 
     public AuthSession (Td.Client client) {
@@ -69,6 +76,11 @@ public class Telegrama.AuthSession : Object {
     }
 
     private async void request_qr () {
+        if (requesting_qr) {
+            return;
+        }
+        requesting_qr = true;
+
         try {
             yield client.request ("requestQrCodeAuthentication", (b) => {
                 b.set_member_name ("other_user_ids");
@@ -80,6 +92,8 @@ public class Telegrama.AuthSession : Object {
             failed (explain (e.message));
             use_phone ();
         }
+
+        requesting_qr = false;
     }
 
     public async void submit_phone (string number) {
@@ -169,6 +183,9 @@ public class Telegrama.AuthSession : Object {
 
             case "authorizationStateClosed":
                 stage = AuthStage.CLOSED;
+                if (!client.stopping) {
+                    restart ();
+                }
                 break;
 
             default:
@@ -176,7 +193,27 @@ public class Telegrama.AuthSession : Object {
         }
     }
 
+    // Terminating the session elsewhere closes TDLib for good: it answers
+    // nothing further and needs a brand new client to sign in again. Without
+    // this the window sits on a spinner until it is restarted by hand.
+    private void restart () {
+        qr_link = "";
+        qr_preferred = true;
+        code_target = "";
+        password_hint = "";
+        configuring = false;
+        requesting_qr = false;
+
+        client.start ();
+        start.begin ();
+    }
+
     private async void configure () {
+        if (configuring) {
+            return;
+        }
+        configuring = true;
+
         if (Config.API_ID == 0 || Config.API_HASH == "") {
             stage = AuthStage.UNCONFIGURED;
             return;
@@ -216,6 +253,7 @@ public class Telegrama.AuthSession : Object {
                 b.add_string_value (Config.VERSION);
             });
         } catch (Td.ClientError e) {
+            configuring = false;
             failed (e.message);
         }
     }
