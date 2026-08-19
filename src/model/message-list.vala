@@ -24,8 +24,14 @@ public class Telegrama.MessageList : Object {
     public signal void prepended ();
     public signal void appended ();
 
+    // Who is typing, phrased for the header. Empty when nobody is.
+    public string activity { get; private set; default = ""; }
+
     private HashTable<string, Message> by_id = new HashTable<string, Message> (str_hash, str_equal);
     private bool exhausted = false;
+    private int64[] seen = {};
+    private uint seen_source = 0;
+    private uint activity_source = 0;
 
     public MessageList (Td.Client client, UserStore users) {
         Object (client: client, users: users, store: new ListStore (typeof (Message)));
@@ -55,6 +61,8 @@ public class Telegrama.MessageList : Object {
 
         // Supergroups and channels only deliver updates while the chat is open,
         // so this is required rather than merely polite.
+        chat.notify["last-read-outbox"].connect (refresh_read);
+
         client.send ("openChat", (b) => {
             b.set_member_name ("chat_id");
             b.add_int_value (chat.id);
@@ -93,6 +101,145 @@ public class Telegrama.MessageList : Object {
         }
 
         return position_of (message_id, out position);
+    }
+
+    public void send (string text) {
+        if (chat == null || text.strip () == "") {
+            return;
+        }
+
+        var target = chat.id;
+        client.send ("sendMessage", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("input_message_content");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("inputMessageText");
+            b.set_member_name ("text");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("formattedText");
+            b.set_member_name ("text");
+            b.add_string_value (text);
+            b.end_object ();
+            b.end_object ();
+        });
+    }
+
+    public void edit (int64 message_id, string text) {
+        if (chat == null || text.strip () == "") {
+            return;
+        }
+
+        var target = chat.id;
+        client.send ("editMessageText", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("message_id");
+            b.add_int_value (message_id);
+            b.set_member_name ("input_message_content");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("inputMessageText");
+            b.set_member_name ("text");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("formattedText");
+            b.set_member_name ("text");
+            b.add_string_value (text);
+            b.end_object ();
+            b.end_object ();
+        });
+    }
+
+    // revoke removes it for everyone; without it the message only goes from our
+    // own history. TDLib forces revoke in supergroups, channels and secret chats
+    // regardless of what is passed.
+    public void discard (int64 message_id, bool revoke) {
+        if (chat == null) {
+            return;
+        }
+
+        var target = chat.id;
+        client.send ("deleteMessages", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("message_ids");
+            b.begin_array ();
+            b.add_int_value (message_id);
+            b.end_array ();
+            b.set_member_name ("revoke");
+            b.add_boolean_value (revoke);
+        });
+    }
+
+    // Walked from the end, since editing almost always means the last thing
+    // said rather than something further back.
+    public Message? last_editable () {
+        for (var i = (int) store.get_n_items () - 1; i >= 0; i--) {
+            var message = (Message) store.get_item (i);
+            if (message.editable) {
+                return message;
+            }
+        }
+        return null;
+    }
+
+    // Batched: binding a screenful of rows would otherwise be a request each.
+    public void saw (int64 message_id) {
+        if (chat == null) {
+            return;
+        }
+
+        seen += message_id;
+
+        if (seen_source == 0) {
+            seen_source = Timeout.add (400, () => {
+                seen_source = 0;
+                flush_seen ();
+                return Source.REMOVE;
+            });
+        }
+    }
+
+    private void flush_seen () {
+        if (chat == null || seen.length == 0) {
+            return;
+        }
+
+        var batch = seen;
+        seen = {};
+        var target = chat.id;
+
+        client.send ("viewMessages", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("message_ids");
+            b.begin_array ();
+            foreach (var id in batch) {
+                b.add_int_value (id);
+            }
+            b.end_array ();
+            b.set_member_name ("source");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("messageSourceChatHistory");
+            b.end_object ();
+            b.set_member_name ("force_read");
+            b.add_boolean_value (false);
+        });
+    }
+
+    private void refresh_read () {
+        if (chat == null) {
+            return;
+        }
+
+        for (uint i = 0; i < store.get_n_items (); i++) {
+            var message = (Message) store.get_item (i);
+            message.read = message.is_outgoing && message.id <= chat.last_read_outbox;
+        }
     }
 
     public void load_older () {
@@ -204,6 +351,8 @@ public class Telegrama.MessageList : Object {
             chat.is_group
         );
 
+        apply_state (message, source);
+
         if (service) {
             message.text = Content.notice (content, users.name_for (message.sender_id));
         } else {
@@ -214,6 +363,23 @@ public class Telegrama.MessageList : Object {
 
         by_id.insert (key, message);
         return message;
+    }
+
+    private void apply_state (Message message, Json.Object source) {
+        if (source.has_member ("sending_state")) {
+            var state = source.get_object_member ("sending_state").get_string_member ("@type");
+            message.sending = state == "messageSendingStatePending";
+            message.failed = state == "messageSendingStateFailed";
+        } else {
+            message.sending = false;
+            message.failed = false;
+        }
+
+        message.read = message.is_outgoing
+            && chat != null
+            && message.id <= chat.last_read_outbox;
+
+        message.edited = source.has_member ("edit_date") && source.get_int_member ("edit_date") > 0;
     }
 
     // A reply to a message in the same chat carries only its id: origin and
@@ -321,14 +487,50 @@ public class Telegrama.MessageList : Object {
                 }
                 break;
 
+            case "updateMessageSendSucceeded":
+                if (body.get_object_member ("message").get_int_member ("chat_id") != chat.id) {
+                    return;
+                }
+                promote (body.get_int_member ("old_message_id"), body.get_object_member ("message"));
+                break;
+
+            case "updateMessageSendFailed":
+                if (body.get_object_member ("message").get_int_member ("chat_id") != chat.id) {
+                    return;
+                }
+                var doomed = by_id.lookup (body.get_int_member ("old_message_id").to_string ());
+                if (doomed != null) {
+                    doomed.sending = false;
+                    doomed.failed = true;
+                }
+                break;
+
+            case "updateChatAction":
+                if (body.get_int_member ("chat_id") == chat.id) {
+                    note_activity (body);
+                }
+                break;
+
+            case "updateMessageEdited":
+                if (body.get_int_member ("chat_id") != chat.id) {
+                    return;
+                }
+                var touched = by_id.lookup (body.get_int_member ("message_id").to_string ());
+                if (touched != null) {
+                    touched.edited = body.get_int_member ("edit_date") > 0;
+                }
+                break;
+
             case "updateMessageContent":
                 if (body.get_int_member ("chat_id") != chat.id) {
                     return;
                 }
 
-                var edited = by_id.lookup (body.get_int_member ("message_id").to_string ());
-                if (edited != null) {
-                    edited.text = Content.describe (body.get_object_member ("new_content"));
+                var changed = by_id.lookup (body.get_int_member ("message_id").to_string ());
+                if (changed != null) {
+                    var fresh = body.get_object_member ("new_content");
+                    changed.text = Content.describe (fresh);
+                    changed.formatted = formatted_of (fresh);
                 }
                 break;
 
@@ -342,6 +544,46 @@ public class Telegrama.MessageList : Object {
             default:
                 break;
         }
+    }
+
+    // The temporary id is replaced in place. Removing and re-inserting would
+    // make the message visibly jump the moment the server accepted it.
+    private void promote (int64 old_id, Json.Object source) {
+        var message = by_id.lookup (old_id.to_string ());
+        if (message == null) {
+            return;
+        }
+
+        by_id.remove (old_id.to_string ());
+        message.id = source.get_int_member ("id");
+        by_id.insert (message.id.to_string (), message);
+
+        apply_state (message, source);
+    }
+
+    private void note_activity (Json.Object body) {
+        var sender = body.get_object_member ("sender_id");
+        var who = sender.get_string_member ("@type") == "messageSenderUser"
+            ? users.name_for (sender.get_int_member ("user_id"))
+            : "";
+
+        var kind = body.get_object_member ("action").get_string_member ("@type");
+        if (kind == "chatActionCancel") {
+            activity = "";
+            return;
+        }
+
+        activity = who == "" ? "typing…" : @"$who is typing…";
+
+        // TDLib does not always send a cancel, so this expires on its own.
+        if (activity_source != 0) {
+            Source.remove (activity_source);
+        }
+        activity_source = Timeout.add_seconds (5, () => {
+            activity = "";
+            activity_source = 0;
+            return Source.REMOVE;
+        });
     }
 
     private void remove_all (Json.Array ids) {

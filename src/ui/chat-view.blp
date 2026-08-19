@@ -18,15 +18,173 @@ template $TelegramaChatView : Adw.Bin {
     StackPage {
       name: "messages";
 
-      child: ScrolledWindow scroll {
-        hscrollbar-policy: never;
-        vexpand: true;
+      child: Box {
+        orientation: vertical;
 
-        child: ListView list {
-          styles [
-            "message-list",
-          ]
-        };
+        Overlay {
+          vexpand: true;
+
+          child: ScrolledWindow scroll {
+            hscrollbar-policy: never;
+
+            child: ListView list {
+              styles [
+                "message-list",
+              ]
+            };
+          };
+
+          [overlay]
+          Revealer jump_down {
+            halign: end;
+            valign: end;
+            margin-end: 14;
+            margin-bottom: 10;
+            transition-type: crossfade;
+            reveal-child: false;
+            can-target: true;
+
+            child: Button to_bottom_button {
+              icon-name: "go-down-symbolic";
+              tooltip-text: "Go to the latest message";
+
+              styles [
+                "circular",
+                "jump-down",
+              ]
+            };
+          }
+        }
+
+        Revealer edit_banner {
+          transition-type: slide_up;
+          reveal-child: false;
+
+          child: Box {
+            spacing: 6;
+            margin-start: 8;
+            margin-end: 8;
+            margin-top: 6;
+
+            Box {
+              orientation: vertical;
+              hexpand: true;
+
+              styles [
+                "reply-quote",
+              ]
+
+              Label {
+                label: "Editing";
+                halign: start;
+                xalign: 0;
+
+                styles [
+                  "caption-heading",
+                ]
+              }
+
+              Label edit_preview {
+                halign: start;
+                xalign: 0;
+                ellipsize: end;
+                single-line-mode: true;
+
+                styles [
+                  "caption",
+                ]
+              }
+            }
+
+            Button edit_cancel {
+              icon-name: "window-close-symbolic";
+              tooltip-text: "Stop editing";
+              valign: center;
+
+              styles [
+                "flat",
+                "circular",
+              ]
+            }
+          };
+        }
+
+        Box {
+          spacing: 6;
+          margin-start: 8;
+          margin-end: 8;
+          margin-top: 6;
+          margin-bottom: 8;
+
+          Overlay {
+            hexpand: true;
+            valign: end;
+
+            child: ScrolledWindow composer_scroll {
+              hscrollbar-policy: never;
+
+              // Not automatic: that reserves room for a scrollbar and gives the
+              // composer a floor of two lines however little it holds.
+              // min-content-height cannot lower it; only the policy can.
+              vscrollbar-policy: external;
+
+              propagate-natural-height: true;
+              min-content-height: 0;
+              max-content-height: 160;
+
+              styles [
+                "composer",
+              ]
+
+              child: TextView entry {
+                wrap-mode: word_char;
+                accepts-tab: false;
+                top-margin: 8;
+                bottom-margin: 8;
+                left-margin: 10;
+                right-margin: 10;
+                input-hints: emoji | spellcheck;
+              };
+            };
+
+            [overlay]
+            Scrollbar composer_bar {
+              orientation: vertical;
+              halign: end;
+              valign: fill;
+              visible: false;
+
+              styles [
+                "composer-bar",
+              ]
+            }
+
+            [overlay]
+            Label placeholder {
+              label: "Message";
+              halign: start;
+              valign: start;
+              margin-start: 11;
+              margin-top: 8;
+              can-target: false;
+
+              styles [
+                "dim-label",
+              ]
+            }
+          }
+
+          Button send {
+            icon-name: "telegrama-send-symbolic";
+            tooltip-text: "Send";
+            valign: center;
+
+            styles [
+              "suggested-action",
+              "circular",
+            ]
+          }
+        }
       };
     }
   };

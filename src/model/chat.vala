@@ -12,6 +12,9 @@ public class Telegrama.Chat : Object {
     // bubble is noise.
     public bool is_group { get; set; default = false; }
 
+    // Everything at or below this id has been read by the other side.
+    public int64 last_read_outbox { get; set; default = 0; }
+
     // Position in the main chat list. Zero means the chat is not in it.
     public int64 order { get; set; default = 0; }
 

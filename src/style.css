@@ -56,3 +56,98 @@
 .bubble.flash-b {
     animation: message-flash-b 1.5s ease-in-out;
 }
+
+/* Not the osd class: that is translucent by design, and over a busy
+   conversation it disappears into whatever is behind it. A solid surface with
+   a shadow reads as floating above the messages instead of within them. */
+button.jump-down {
+    background-color: @popover_bg_color;
+    background-image: none;
+    color: @window_fg_color;
+    border: 1px solid alpha(@window_fg_color, 0.1);
+    box-shadow: 0 2px 6px alpha(black, 0.4);
+}
+
+button.jump-down:hover {
+    background-color: mix(@popover_bg_color, @window_fg_color, 0.08);
+}
+
+button.jump-down:active {
+    background-color: mix(@popover_bg_color, @window_fg_color, 0.16);
+}
+
+/* A TextView in a ScrolledWindow has none of an Entry's chrome, so it borrows
+   the look rather than sitting bare against the window. */
+.composer {
+    background-color: @view_bg_color;
+    border: 1px solid alpha(@window_fg_color, 0.15);
+    border-radius: 12px;
+}
+
+.composer textview,
+.composer textview text {
+    background: none;
+}
+
+.composer:focus-within {
+    border-color: @accent_color;
+}
+
+/* Overlaid rather than in the layout, so it is styled down to a hint rather
+   than a control: 3px, faint, and inset well clear of the text. */
+scrollbar.composer-bar {
+    background: none;
+    border: none;
+    min-width: 0;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-right: 2px;
+}
+
+scrollbar.composer-bar trough {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+scrollbar.composer-bar slider {
+    min-width: 3px;
+    margin: 0;
+    border: none;
+    border-radius: 3px;
+    background-color: alpha(currentColor, 0.22);
+}
+
+scrollbar.composer-bar slider:hover {
+    background-color: alpha(currentColor, 0.42);
+}
+
+/* The popover's own items, rather than a GtkPopoverMenu: normal weight, room
+   to read, and an icon per action. */
+.message-menu {
+    margin: 2px;
+}
+
+.message-menu-item {
+    padding: 7px 10px;
+    min-height: 0;
+    border-radius: 7px;
+    font-weight: normal;
+    font-size: 14px;
+}
+
+.message-menu-item label {
+    font-weight: normal;
+    font-size: 14px;
+}
+
+popover.message-menu-popover > contents {
+    padding: 4px;
+}
+
+.message-menu-item.destructive,
+.message-menu-item.destructive label {
+    color: @destructive_color;
+}

@@ -1,0 +1,52 @@
+[
+  {
+    "label": "Build",
+    "command": "ninja",
+    "args": [
+      "-C",
+      "build"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Run",
+    "command": "pkill -x telegrama; ninja -C build && GSETTINGS_SCHEMA_DIR=\"$ZED_WORKTREE_ROOT/build/data\" ./build/src/telegrama",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Test",
+    "command": "meson",
+    "args": [
+      "test",
+      "-C",
+      "build",
+      "--print-errorlogs"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Reconfigure",
+    "command": "meson setup --reconfigure build $([ -f local.ini ] && echo --native-file local.ini)",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Clean rebuild",
+    "command": "rm -rf build && meson setup build $([ -f local.ini ] && echo --native-file local.ini) && ninja -C build",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  }
+]

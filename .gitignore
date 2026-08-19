@@ -5,3 +5,4 @@ subprojects/*/
 .cache/
 *.swp
 CLAUDE.local.md
+local.ini

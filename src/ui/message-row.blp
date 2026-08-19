@@ -89,23 +89,51 @@ template $TelegramaMessageRow : Box {
         }
       }
 
-      Label text_label {
-        halign: start;
-        xalign: 0;
-        wrap: true;
-        wrap-mode: word_char;
-        selectable: true;
-        use-markup: true;
-        max-width-chars: 48;
-      }
+      Box body {
+        spacing: 8;
 
-      Label time_label {
-        halign: end;
+        Label text_label {
+          halign: start;
+          xalign: 0;
+          wrap: true;
+          wrap-mode: word_char;
+          selectable: true;
+          use-markup: true;
+          max-width-chars: 48;
+        }
 
-        styles [
-          "caption",
-          "dim-label",
-        ]
+        Box footer {
+          halign: end;
+          valign: end;
+          spacing: 4;
+
+          Label edited_label {
+            label: "edited";
+            visible: false;
+
+            styles [
+              "caption",
+              "dim-label",
+            ]
+          }
+
+          Label time_label {
+            styles [
+              "caption",
+              "dim-label",
+            ]
+          }
+
+          Image state_icon {
+            visible: false;
+            pixel-size: 16;
+            valign: center;
+
+            styles [
+              "dim-label",
+            ]
+          }
+        }
       }
     }
   }
