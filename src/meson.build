@@ -71,6 +71,7 @@ sources = files(
   'util/keyring.vala',
   'util/dates.vala',
   'util/content.vala',
+  'util/entities.vala',
 )
 
 executable('telegrama',

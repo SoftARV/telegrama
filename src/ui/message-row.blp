@@ -2,49 +2,111 @@ using Gtk 4.0;
 using Adw 1;
 
 template $TelegramaMessageRow : Box {
-  // Vertical so the bubble is allocated the full row width and its halign has
-  // room to mean something; a horizontal box would pack it at natural width.
+  // Vertical so the line below is allocated the full row width and its halign
+  // has room to mean something; a horizontal box would pack it at natural width.
   orientation: vertical;
   margin-start: 12;
   margin-end: 12;
   margin-top: 2;
   margin-bottom: 2;
 
-  Box bubble {
-    orientation: vertical;
-    spacing: 1;
+  Label service_label {
+    halign: center;
+    justify: center;
+    wrap: true;
+    wrap-mode: word_char;
+    visible: false;
+    margin-top: 4;
+    margin-bottom: 4;
 
     styles [
-      "bubble",
+      "caption",
+      "dim-label",
     ]
+  }
 
-    Label sender_label {
-      halign: start;
-      xalign: 0;
-      ellipsize: end;
-      single-line-mode: true;
+  Box line {
+    spacing: 6;
 
-      styles [
-        "caption-heading",
-      ]
+    Adw.Avatar avatar {
+      size: 28;
+      show-initials: true;
+      valign: end;
+      visible: false;
     }
 
-    Label text_label {
-      halign: start;
-      xalign: 0;
-      wrap: true;
-      wrap-mode: word_char;
-      selectable: true;
-      max-width-chars: 48;
-    }
-
-    Label time_label {
-      halign: end;
+    Box bubble {
+      orientation: vertical;
+      spacing: 1;
 
       styles [
-        "caption",
-        "dim-label",
+        "bubble",
       ]
+
+      Label sender_label {
+        use-markup: true;
+        halign: start;
+        xalign: 0;
+        ellipsize: end;
+        single-line-mode: true;
+
+        styles [
+          "caption-heading",
+        ]
+      }
+
+      Box reply_box {
+        orientation: vertical;
+        visible: false;
+        margin-bottom: 2;
+
+        styles [
+          "reply-quote",
+        ]
+
+        Label reply_sender {
+          use-markup: true;
+          halign: start;
+          xalign: 0;
+          ellipsize: end;
+          single-line-mode: true;
+
+          styles [
+            "caption-heading",
+          ]
+        }
+
+        Label reply_text {
+          halign: start;
+          xalign: 0;
+          ellipsize: end;
+          single-line-mode: true;
+          max-width-chars: 40;
+
+          styles [
+            "caption",
+          ]
+        }
+      }
+
+      Label text_label {
+        halign: start;
+        xalign: 0;
+        wrap: true;
+        wrap-mode: word_char;
+        selectable: true;
+        use-markup: true;
+        max-width-chars: 48;
+      }
+
+      Label time_label {
+        halign: end;
+
+        styles [
+          "caption",
+          "dim-label",
+        ]
+      }
     }
   }
 }

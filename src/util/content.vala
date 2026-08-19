@@ -32,6 +32,90 @@ namespace Telegrama.Content {
         return describe (content);
     }
 
+    // TDLib does not mark service messages, so the list is hardcoded the way
+    // every client hardcodes it. Roughly 80 of its 104 content types are
+    // notices rather than something a person wrote.
+    public bool is_service (Json.Object content) {
+        var kind = content.get_string_member ("@type");
+
+        return kind.has_prefix ("messageChat")
+            || kind.has_prefix ("messageForumTopic")
+            || kind.has_prefix ("messageVideoChat")
+            || kind.has_prefix ("messageGiveaway")
+            || kind.has_prefix ("messageGift")
+            || kind.has_prefix ("messagePayment")
+            || kind.has_prefix ("messageSuggested")
+            || kind.has_prefix ("messagePassport")
+            || kind.has_prefix ("messageWebApp")
+            || kind == "messagePinMessage"
+            || kind == "messageScreenshotTaken"
+            || kind == "messageContactRegistered"
+            || kind == "messageBasicGroupChatCreate"
+            || kind == "messageSupergroupChatCreate"
+            || kind == "messageCustomServiceAction"
+            || kind == "messageProximityAlertTriggered"
+            || kind == "messageUsersShared"
+            || kind == "messageBotWriteAccessAllowed"
+            || kind == "messageGameScore"
+            || kind == "messageUnsupported";
+    }
+
+    // Written as a sentence about the person, since that is how a notice reads.
+    public string notice (Json.Object content, string actor) {
+        var who = actor == "" ? "Someone" : actor;
+
+        switch (content.get_string_member ("@type")) {
+            case "messageChatChangeTitle":
+                return @"$who changed the name to \u201C$(content.get_string_member ("title"))\u201D";
+            case "messageChatChangePhoto":
+                return @"$who changed the photo";
+            case "messageChatDeletePhoto":
+                return @"$who removed the photo";
+            case "messageChatAddMembers":
+                return @"$who added a member";
+            case "messageChatJoinByLink":
+                return @"$who joined via invite link";
+            case "messageChatJoinByRequest":
+                return @"$who joined";
+            case "messageChatDeleteMember":
+                return @"$who removed a member";
+            case "messageChatUpgradeTo":
+            case "messageChatUpgradeFrom":
+                return "The group became a supergroup";
+            case "messageBasicGroupChatCreate":
+            case "messageSupergroupChatCreate":
+                return @"$who created the group";
+            case "messagePinMessage":
+                return @"$who pinned a message";
+            case "messageScreenshotTaken":
+                return @"$who took a screenshot";
+            case "messageChatSetTheme":
+                return @"$who changed the theme";
+            case "messageChatSetBackground":
+                return @"$who changed the background";
+            case "messageChatSetMessageAutoDeleteTime":
+                return "The auto-delete timer changed";
+            case "messageContactRegistered":
+                return @"$who joined Telegram";
+            case "messageVideoChatStarted":
+                return "Video chat started";
+            case "messageVideoChatEnded":
+                return "Video chat ended";
+            case "messageVideoChatScheduled":
+                return "Video chat scheduled";
+            case "messageForumTopicCreated":
+                return @"$who created the topic";
+            case "messageCustomServiceAction":
+                return content.has_member ("text") ? content.get_string_member ("text") : "Notice";
+            case "messageUnsupported":
+                return "Unsupported message";
+            default:
+                // The long tail is real but rare; a neutral notice beats a bubble
+                // reading "Message".
+                return describe (content);
+        }
+    }
+
     public string describe (Json.Object content) {
 
         switch (content.get_string_member ("@type")) {

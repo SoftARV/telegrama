@@ -9,6 +9,9 @@ public class Telegrama.MessageList : Object {
     // scroll.
     private const uint MIN_HISTORY = 30;
 
+    // Pages to page back through before giving up on reaching a message.
+    private const int PAGE_LIMIT = 12;
+
     public Td.Client client { get; construct; }
     public UserStore users { get; construct; }
     public ListStore store { get; construct; }
@@ -31,14 +34,6 @@ public class Telegrama.MessageList : Object {
     construct {
         client.update.connect (on_update);
 
-        users.learned.connect ((id, name) => {
-            for (uint i = 0; i < store.get_n_items (); i++) {
-                var message = (Message) store.get_item (i);
-                if (message.sender_id == id && chat != null && chat.is_group) {
-                    message.sender_name = name;
-                }
-            }
-        });
     }
 
     public void open (Chat? target) {
@@ -66,6 +61,38 @@ public class Telegrama.MessageList : Object {
         });
 
         load_from.begin (0);
+    }
+
+    public bool position_of (int64 message_id, out uint position) {
+        position = 0;
+
+        var target = by_id.lookup (message_id.to_string ());
+        return target != null && store.find (target, out position);
+    }
+
+    // Paging back until the message turns up keeps the store one contiguous
+    // run. Loading a window around it instead would be quicker but would leave
+    // a hole in the middle of the history.
+    public async bool reach (int64 message_id) {
+        uint position;
+
+        for (var attempt = 0; attempt < PAGE_LIMIT; attempt++) {
+            if (position_of (message_id, out position)) {
+                return true;
+            }
+            if (exhausted || store.get_n_items () == 0) {
+                return false;
+            }
+
+            var before = store.get_n_items ();
+            yield load_from (((Message) store.get_item (0)).id);
+
+            if (store.get_n_items () == before) {
+                return false;
+            }
+        }
+
+        return position_of (message_id, out position);
     }
 
     public void load_older () {
@@ -165,19 +192,98 @@ public class Telegrama.MessageList : Object {
         }
 
         var content = source.get_object_member ("content");
+        var service = Content.is_service (content);
+
         var message = new Message (
             id,
             sender_of (source),
             source.get_boolean_member ("is_outgoing"),
             source.get_int_member ("date"),
-            content.get_string_member ("@type") != "messageText"
+            !service && content.get_string_member ("@type") != "messageText",
+            service,
+            chat.is_group
         );
 
-        message.text = Content.full (source);
-        message.sender_name = chat.is_group ? users.name_for (message.sender_id) : "";
+        if (service) {
+            message.text = Content.notice (content, users.name_for (message.sender_id));
+        } else {
+            resolve_reply (message, source);
+            message.text = Content.full (source);
+            message.formatted = formatted_of (content);
+        }
 
         by_id.insert (key, message);
         return message;
+    }
+
+    // A reply to a message in the same chat carries only its id: origin and
+    // content are filled in only when the reply crosses chats. So the quoted
+    // text comes from what is already loaded, or from TDLib if it is not.
+    private void resolve_reply (Message message, Json.Object source) {
+        if (!source.has_member ("reply_to")) {
+            return;
+        }
+
+        var reply = source.get_object_member ("reply_to");
+        if (reply.get_string_member ("@type") != "messageReplyToMessage") {
+            return;
+        }
+
+        message.reply_to_id = reply.get_int_member ("message_id");
+        if (message.reply_to_id == 0) {
+            return;
+        }
+
+        // A manually chosen quote is what the sender meant to point at, so it
+        // wins over the whole message.
+        if (reply.has_member ("quote")) {
+            var quote = reply.get_object_member ("quote");
+            message.reply_preview = quote.get_object_member ("text").get_string_member ("text")
+                .replace ("\n", " ").strip ();
+        }
+
+        var known = by_id.lookup (message.reply_to_id.to_string ());
+        if (known != null) {
+            message.reply_sender_id = known.sender_id;
+            if (message.reply_preview == "") {
+                message.reply_preview = known.text.replace ("\n", " ").strip ();
+            }
+            return;
+        }
+
+        fetch_reply.begin (message, source.get_int_member ("chat_id"));
+    }
+
+    private async void fetch_reply (Message message, int64 chat_id) {
+        try {
+            var source = yield client.request ("getMessage", (b) => {
+                b.set_member_name ("chat_id");
+                b.add_int_value (chat_id);
+                b.set_member_name ("message_id");
+                b.add_int_value (message.reply_to_id);
+            });
+
+            message.reply_sender_id = sender_of (source);
+            if (message.reply_preview == "") {
+                message.reply_preview = Content.summary (source);
+            }
+        } catch (Td.ClientError e) {
+            // Deleted, or too old for TDLib to still have it.
+            if (message.reply_preview == "") {
+                message.reply_preview = "Message unavailable";
+            }
+        }
+    }
+
+    // Only text and captions carry entities; everything else renders as a label.
+    private static Json.Object? formatted_of (Json.Object content) {
+        if (content.get_string_member ("@type") == "messageText") {
+            return content.get_object_member ("text");
+        }
+        if (content.has_member ("caption")) {
+            return content.get_object_member ("caption");
+        }
+        return null;
     }
 
     private static int64 sender_of (Json.Object source) {

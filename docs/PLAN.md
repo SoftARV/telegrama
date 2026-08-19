@@ -187,17 +187,46 @@ converged on this; budget real time for getting it right.
 ourselves. Per-message `Gtk.Label` with `selectable: true` gives per-bubble selection. That is
 the v1 answer; a custom-drawn log is a separate project.
 
-### Phase 4 — rendering text
-`formattedText` → Pango markup, via `util/entities.vala`.
+### Phase 4 — rendering messages
 
-**Entity offsets are in UTF-16 code units.** Vala strings are UTF-8 byte arrays. Every offset
-and length must be converted UTF-16 → byte before slicing, or any message containing an emoji
-or non-BMP character will render with corrupted formatting. This is the single most likely
-source of subtle bugs in the whole client — write it once, unit-test it against a string with
-astral-plane codepoints, and never touch it again.
+Two jobs that turned out to be one phase: formatting the text people wrote, and rendering the
+messages nobody wrote.
 
-Escape the text *before* inserting markup tags. Support: bold, italic, underline, strikethrough,
-code, pre, spoiler (render as a click-to-reveal), text_url, mention, hashtag.
+#### Text entities
+
+`formattedText` is a plain string plus a flat list of `textEntity { offset, length, type }`.
+TDLib defines 23 entity types. Converted to Pango markup in `util/entities.vala`.
+
+**Entity offsets are in UTF-16 code units.** Vala strings are UTF-8 byte arrays, and the same
+position in `"hi 👋 bold"` is 6 in UTF-16, 5 in codepoints and 8 in bytes. Convert once, at the
+boundary, so nothing downstream ever sees a UTF-16 index — then unit-test it against
+astral-plane text. This is the first thing in the project worth a test, and what finally gives
+`meson test` something to run.
+
+**Escape each run, not the whole string.** Escaping first would shift every byte offset you are
+about to slice at, because `&` becomes `&amp;`.
+
+**Split at entity boundaries** rather than assuming entities nest cleanly. Collect every start
+and end, emit one run per gap, and open the tags that cover it.
+
+Markup covers bold, italic, underline, strikethrough, code, pre, and text_url. Spoilers are
+click-to-reveal: rendered with foreground and background both set to the label's own colour, so
+they read as a solid bar and follow the theme without hardcoding one. Blockquotes and custom
+emoji need real widget work and are not markup problems; they wait.
+
+#### Service messages
+
+Of TDLib's 104 `MessageContent` types, only about 23 are things a person wrote. The rest —
+`ChatChangeTitle`, `ChatAddMembers`, `PinMessage`, `VideoChatStarted`, the whole gift and
+giveaway family — are **service messages**, Telegram's term for system notices.
+
+**TDLib does not flag them.** They arrive as ordinary messages whose content happens to be an
+action type, with no boolean distinguishing them, so the list is hardcoded like every other
+client does it.
+
+They need different layout, not different styling: centered, no bubble, no avatar, dimmed. The
+common ones get real sentences; the long tail falls back to a generic centered notice rather
+than a bubble reading "Message".
 
 ### Phase 5 — sending and state
 `sendMessage` with `inputMessageText`. Note the current signature takes `topic_id` and

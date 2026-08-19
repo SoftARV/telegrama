@@ -14,6 +14,9 @@ public class Telegrama.ChatView : Adw.Bin {
     // been measured. Negative means nothing is waiting.
     private double anchor = -1;
     private bool follow = true;
+    private Message? flashing = null;
+    private uint flash_source = 0;
+    private bool flash_variant = false;
 
     public ChatView (MessageList messages) {
         Object (messages: messages);
@@ -23,7 +26,9 @@ public class Telegrama.ChatView : Adw.Bin {
         var factory = new Gtk.SignalListItemFactory ();
 
         factory.setup.connect ((object) => {
-            ((Gtk.ListItem) object).child = new MessageRow ();
+            var row = new MessageRow (messages.users);
+            row.jump.connect (jump_to);
+            ((Gtk.ListItem) object).child = row;
         });
 
         factory.bind.connect ((object) => {
@@ -81,6 +86,58 @@ public class Telegrama.ChatView : Adw.Bin {
             if (adjustment.value < EDGE) {
                 messages.load_older ();
             }
+        });
+    }
+
+    private void jump_to (int64 message_id) {
+        reach.begin (message_id);
+    }
+
+    private async void reach (int64 message_id) {
+        var found = yield messages.reach (message_id);
+        if (!found) {
+            return;
+        }
+
+        uint position;
+        if (!messages.position_of (message_id, out position)) {
+            return;
+        }
+
+        // Paging back to find it will have armed the anchor, which would pull
+        // the view straight back to where the reader was.
+        anchor = -1;
+        follow = false;
+
+        list.scroll_to (position, Gtk.ListScrollFlags.NONE, null);
+
+        flash ((Message) messages.store.get_item (position));
+    }
+
+    // Jumping again before the previous pulse finishes has to clear the old
+    // highlight first, or the second jump lands on a message already wearing
+    // the class and nothing happens.
+    private void flash (Message target) {
+        if (flash_source != 0) {
+            Source.remove (flash_source);
+            flash_source = 0;
+        }
+
+        if (flashing != null) {
+            flashing.highlighted = false;
+        }
+
+        flash_variant = !flash_variant;
+        target.flash_variant = flash_variant;
+        target.highlighted = true;
+        flashing = target;
+
+        // Outlasts the animation, or the class would be pulled mid-pulse.
+        flash_source = Timeout.add (1700, () => {
+            target.highlighted = false;
+            flashing = null;
+            flash_source = 0;
+            return Source.REMOVE;
         });
     }
 
