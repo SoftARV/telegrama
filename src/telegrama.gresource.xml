@@ -6,5 +6,6 @@
     <file alias="icons/symbolic/apps/dev.miguel.Telegrama-symbolic.svg">../data/icons/hicolor/symbolic/apps/dev.miguel.Telegrama-symbolic.svg</file>
     <file preprocess="xml-stripblanks">window.ui</file>
     <file preprocess="xml-stripblanks">login-view.ui</file>
+    <file preprocess="xml-stripblanks">chat-row.ui</file>
   </gresource>
 </gresources>
