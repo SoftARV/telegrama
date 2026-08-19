@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.miguel.Telegrama</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Telegrama</name>
+  <summary>A fast, native Telegram client</summary>
+
+  <description>
+    <p>
+      Telegrama is a native GTK4 Telegram client built on TDLib, written for
+      people who would rather not run a browser engine to read their messages.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">dev.miguel.Telegrama.desktop</launchable>
+  <url type="homepage">https://github.com/SoftARV/telegrama</url>
+  <url type="bugtracker">https://github.com/SoftARV/telegrama/issues</url>
+
+  <developer id="dev.miguel">
+    <name>Miguel Rincon</name>
+  </developer>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-info">moderate</content_attribute>
+  </content_rating>
+
+  <releases>
+    <release version="0.1.0" date="2026-08-19">
+      <description>
+        <p>Sign-in support.</p>
+      </description>
+    </release>
+  </releases>
+</component>

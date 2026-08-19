@@ -4,6 +4,8 @@ project('telegrama', ['c', 'vala'],
   default_options: ['warning_level=1', 'c_std=gnu11'],
 )
 
+gnome = import('gnome')
+
 add_project_arguments(
   ['-Wno-unused-variable', '-Wno-unused-but-set-variable', '-Wno-unused-function'],
   language: 'c',
@@ -12,4 +14,11 @@ add_project_arguments(
 app_id = 'dev.miguel.Telegrama'
 app_path = '/dev/miguel/Telegrama'
 
+subdir('data')
 subdir('src')
+
+gnome.post_install(
+  gtk_update_icon_cache: true,
+  update_desktop_database: true,
+  glib_compile_schemas: true,
+)

@@ -1,7 +1,7 @@
 namespace Telegrama.Config {
-	public const string APP_ID = @APP_ID@;
-	public const string APP_PATH = @APP_PATH@;
-	public const string VERSION = @VERSION@;
-	public const int API_ID = @API_ID@;
-	public const string API_HASH = @API_HASH@;
+    public const string APP_ID = "@APP_ID@";
+    public const string APP_PATH = "@APP_PATH@";
+    public const string VERSION = "@VERSION@";
+    public const int API_ID = @API_ID@;
+    public const string API_HASH = "@API_HASH@";
 }

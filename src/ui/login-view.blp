@@ -1,0 +1,167 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TelegramaLoginView : Adw.Bin {
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-title: false;
+
+      styles [
+        "flat",
+      ]
+    }
+
+    content: Stack stack {
+      transition-type: crossfade;
+
+      StackPage {
+        name: "connecting";
+
+        child: Adw.StatusPage {
+          title: "Connecting to Telegram";
+
+          child: Adw.Spinner {
+            width-request: 32;
+            height-request: 32;
+            halign: center;
+          };
+        };
+      }
+
+      StackPage {
+        name: "unconfigured";
+
+        child: Adw.StatusPage {
+          icon-name: "dialog-warning-symbolic";
+          title: "No API credentials";
+          description: "Telegrama was built without an api_id. Register one at my.telegram.org, then rebuild with -Dapi_id= and -Dapi_hash=.";
+        };
+      }
+
+      StackPage {
+        name: "phone";
+
+        child: Adw.StatusPage {
+          icon-name: "call-start-symbolic";
+          title: "Sign in to Telegram";
+          description: "Enter your phone number, including the country code.";
+
+          child: Adw.Clamp {
+            maximum-size: 320;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Entry phone_entry {
+                placeholder-text: "+1 555 0100";
+                input-purpose: phone;
+                xalign: 0.5;
+
+                styles [
+                  "login-entry",
+                ]
+              }
+
+              Button phone_next {
+                label: "Next";
+                halign: center;
+
+                styles [
+                  "suggested-action",
+                  "pill",
+                ]
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "code";
+
+        child: Adw.StatusPage code_page {
+          icon-name: "mail-unread-symbolic";
+          title: "Enter your code";
+
+          child: Adw.Clamp {
+            maximum-size: 320;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Entry code_entry {
+                placeholder-text: "12345";
+                input-purpose: digits;
+                xalign: 0.5;
+
+                styles [
+                  "login-entry",
+                ]
+              }
+
+              Button code_next {
+                label: "Sign in";
+                halign: center;
+
+                styles [
+                  "suggested-action",
+                  "pill",
+                ]
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "password";
+
+        child: Adw.StatusPage password_page {
+          icon-name: "dialog-password-symbolic";
+          title: "Two-step verification";
+
+          child: Adw.Clamp {
+            maximum-size: 320;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 12;
+
+              PasswordEntry password_entry {
+                show-peek-icon: true;
+
+                styles [
+                  "login-entry",
+                ]
+              }
+
+              Button password_next {
+                label: "Sign in";
+                halign: center;
+
+                styles [
+                  "suggested-action",
+                  "pill",
+                ]
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "registration";
+
+        child: Adw.StatusPage {
+          icon-name: "user-info-symbolic";
+          title: "This number has no account";
+          description: "Telegrama cannot create a new Telegram account. Sign up in the official app first, then come back.";
+        };
+      }
+    };
+  };
+}
