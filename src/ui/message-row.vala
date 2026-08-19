@@ -11,14 +11,17 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label reply_text;
     [GtkChild] private unowned Gtk.Label text_label;
     [GtkChild] private unowned Gtk.Label time_label;
+    [GtkChild] private unowned Gtk.Label edited_label;
     [GtkChild] private unowned Gtk.Label state_label;
 
     public signal void jump (int64 message_id);
+    public signal void edit_requested (Message message);
 
     public UserStore users { get; construct; }
 
     private Message? message = null;
     private ulong handler = 0;
+    private Gtk.Popover? menu = null;
 
     public MessageRow (UserStore users) {
         Object (users: users);
@@ -51,6 +54,14 @@ public class Telegrama.MessageRow : Gtk.Box {
             }
         });
         reply_box.add_controller (follow);
+
+        var secondary = new Gtk.GestureClick () { button = 3 };
+        secondary.pressed.connect ((n, x, y) => {
+            if (message != null && message.editable) {
+                open_menu (x, y);
+            }
+        });
+        add_controller (secondary);
     }
 
     public void bind (Message message) {
@@ -82,6 +93,40 @@ public class Telegrama.MessageRow : Gtk.Box {
             (int) (colour.green * 255),
             (int) (colour.blue * 255)
         );
+    }
+
+    private void open_menu (double x, double y) {
+        if (menu == null) {
+            var edit = new Gtk.Button.with_label ("Edit") {
+                has_frame = false
+            };
+            edit.clicked.connect (() => {
+                menu.popdown ();
+                if (message != null) {
+                    edit_requested (message);
+                }
+            });
+
+            menu = new Gtk.Popover () {
+                child = edit,
+                has_arrow = false,
+                autohide = true
+            };
+            menu.set_parent (this);
+        }
+
+        menu.set_pointing_to ({ (int) x, (int) y, 1, 1 });
+        menu.popup ();
+    }
+
+    // Popovers are parented rather than owned, so GTK wants them taken down by
+    // hand before the row goes.
+    public override void dispose () {
+        if (menu != null) {
+            menu.unparent ();
+            menu = null;
+        }
+        base.dispose ();
     }
 
     private void refresh () {
@@ -157,6 +202,8 @@ public class Telegrama.MessageRow : Gtk.Box {
         }
 
         time_label.label = new DateTime.from_unix_local (message.date).format ("%H:%M");
+
+        edited_label.visible = message.edited;
 
         // Only our own messages have a delivery state worth reporting.
         state_label.visible = message.is_outgoing;

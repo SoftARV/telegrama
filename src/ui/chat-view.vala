@@ -9,6 +9,9 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.ListView list;
     [GtkChild] private unowned Gtk.Entry entry;
     [GtkChild] private unowned Gtk.Button send;
+    [GtkChild] private unowned Gtk.Revealer edit_banner;
+    [GtkChild] private unowned Gtk.Label edit_preview;
+    [GtkChild] private unowned Gtk.Button edit_cancel;
     [GtkChild] private unowned Gtk.Revealer jump_down;
     [GtkChild] private unowned Gtk.Button to_bottom_button;
 
@@ -23,6 +26,7 @@ public class Telegrama.ChatView : Adw.Bin {
     private bool flash_variant = false;
     private bool adjusting = false;
     private uint settle_source = 0;
+    private Message? editing = null;
 
     public ChatView (MessageList messages) {
         Object (messages: messages);
@@ -34,6 +38,7 @@ public class Telegrama.ChatView : Adw.Bin {
         factory.setup.connect ((object) => {
             var row = new MessageRow (messages.users);
             row.jump.connect (jump_to);
+            row.edit_requested.connect (begin_edit);
             ((Gtk.ListItem) object).child = row;
         });
 
@@ -60,13 +65,36 @@ public class Telegrama.ChatView : Adw.Bin {
         entry.activate.connect (deliver);
         send.clicked.connect (deliver);
 
+        edit_cancel.clicked.connect (cancel_edit);
+
+        var keys = new Gtk.EventControllerKey ();
+        keys.key_pressed.connect ((keyval, code, state) => {
+            if (keyval == Gdk.Key.Escape && editing != null) {
+                cancel_edit ();
+                return true;
+            }
+
+            // Up on an empty composer reaches for the last thing said, which is
+            // what it almost always means.
+            if (keyval == Gdk.Key.Up && editing == null && entry.text == "") {
+                var target = messages.last_editable ();
+                if (target != null) {
+                    begin_edit (target);
+                    return true;
+                }
+            }
+
+            return false;
+        });
+        entry.add_controller (keys);
+
         to_bottom_button.clicked.connect (() => {
             set_follow (true);
             to_bottom ();
         });
 
         messages.notify["chat"].connect (() => {
-            entry.text = "";
+            cancel_edit ();
             set_follow (true);
             anchor = -1;
             stack.visible_child_name = messages.chat == null ? "empty" : "messages";
@@ -77,12 +105,20 @@ public class Telegrama.ChatView : Adw.Bin {
         // keeps the reader where they were instead of throwing them upward.
         messages.prepended.connect (() => {
             anchor = scroll.vadjustment.upper - scroll.vadjustment.value;
-            printerr ("PREPENDED anchor=%.0f\n", anchor);
         });
 
         messages.appended.connect (() => {
-            printerr ("APPENDED follow=%s items=%u\n", follow.to_string (),
-                messages.store.get_n_items ());
+            if (follow) {
+                to_bottom ();
+            }
+        });
+
+        // The editing banner shortens the scrolled window, and GtkListView
+        // answers a re-allocation by resetting its adjustment to zero rather
+        // than clamping it, throwing the reader to the top of the history.
+        // Re-pinning here also keeps that reset from reading as the reader
+        // scrolling away, since to_bottom raises the guard below.
+        scroll.vadjustment.notify["page-size"].connect (() => {
             if (follow) {
                 to_bottom ();
             }
@@ -119,11 +155,25 @@ public class Telegrama.ChatView : Adw.Bin {
             // content does not fill it sits at value 0, which otherwise reads
             // as "the reader is at the top, fetch more".
             if (adjustment.upper > adjustment.page_size && adjustment.value < EDGE) {
-                printerr ("LOADOLDER upper=%.0f value=%.0f page=%.0f\n",
-                    adjustment.upper, adjustment.value, adjustment.page_size);
                 messages.load_older ();
             }
         });
+    }
+
+    private void begin_edit (Message target) {
+        editing = target;
+        edit_preview.label = target.text.replace ("\n", " ").strip ();
+        edit_banner.reveal_child = true;
+
+        entry.text = target.text;
+        entry.grab_focus ();
+        entry.set_position (-1);
+    }
+
+    private void cancel_edit () {
+        editing = null;
+        edit_banner.reveal_child = false;
+        entry.text = "";
     }
 
     private void deliver () {
@@ -132,10 +182,15 @@ public class Telegrama.ChatView : Adw.Bin {
             return;
         }
 
+        if (editing != null) {
+            messages.edit (editing.id, text);
+            cancel_edit ();
+            return;
+        }
+
         entry.text = "";
 
         // Sending scrolls back down: it would be odd to send and not see it.
-        printerr ("DELIVER\n");
         set_follow (true);
         messages.send (text);
     }
@@ -195,12 +250,6 @@ public class Telegrama.ChatView : Adw.Bin {
     // One place, so the button showing the way back always matches whether the
     // view is actually pinned to the bottom.
     private void set_follow (bool value) {
-        if (follow != value) {
-            var a = scroll.vadjustment;
-            printerr ("FOLLOW %s->%s upper=%.0f value=%.0f page=%.0f adjusting=%s\n",
-                follow.to_string (), value.to_string (), a.upper, a.value, a.page_size,
-                adjusting.to_string ());
-        }
         follow = value;
         jump_down.reveal_child = !value;
     }
@@ -213,10 +262,6 @@ public class Telegrama.ChatView : Adw.Bin {
     // are measured and upper grows.
     private void to_bottom () {
         var adjustment = scroll.vadjustment;
-
-        printerr ("TOBOTTOM upper=%.0f value=%.0f page=%.0f -> %.0f\n",
-            adjustment.upper, adjustment.value, adjustment.page_size,
-            adjustment.upper - adjustment.page_size);
 
         adjusting = true;
         adjustment.value = adjustment.upper - adjustment.page_size;

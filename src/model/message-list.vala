@@ -127,6 +127,44 @@ public class Telegrama.MessageList : Object {
         });
     }
 
+    public void edit (int64 message_id, string text) {
+        if (chat == null || text.strip () == "") {
+            return;
+        }
+
+        var target = chat.id;
+        client.send ("editMessageText", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (target);
+            b.set_member_name ("message_id");
+            b.add_int_value (message_id);
+            b.set_member_name ("input_message_content");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("inputMessageText");
+            b.set_member_name ("text");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("formattedText");
+            b.set_member_name ("text");
+            b.add_string_value (text);
+            b.end_object ();
+            b.end_object ();
+        });
+    }
+
+    // Walked from the end, since editing almost always means the last thing
+    // said rather than something further back.
+    public Message? last_editable () {
+        for (var i = (int) store.get_n_items () - 1; i >= 0; i--) {
+            var message = (Message) store.get_item (i);
+            if (message.editable) {
+                return message;
+            }
+        }
+        return null;
+    }
+
     // Batched: binding a screenful of rows would otherwise be a request each.
     public void saw (int64 message_id) {
         if (chat == null) {
@@ -319,6 +357,8 @@ public class Telegrama.MessageList : Object {
         message.read = message.is_outgoing
             && chat != null
             && message.id <= chat.last_read_outbox;
+
+        message.edited = source.has_member ("edit_date") && source.get_int_member ("edit_date") > 0;
     }
 
     // A reply to a message in the same chat carries only its id: origin and
@@ -450,14 +490,26 @@ public class Telegrama.MessageList : Object {
                 }
                 break;
 
+            case "updateMessageEdited":
+                if (body.get_int_member ("chat_id") != chat.id) {
+                    return;
+                }
+                var touched = by_id.lookup (body.get_int_member ("message_id").to_string ());
+                if (touched != null) {
+                    touched.edited = body.get_int_member ("edit_date") > 0;
+                }
+                break;
+
             case "updateMessageContent":
                 if (body.get_int_member ("chat_id") != chat.id) {
                     return;
                 }
 
-                var edited = by_id.lookup (body.get_int_member ("message_id").to_string ());
-                if (edited != null) {
-                    edited.text = Content.describe (body.get_object_member ("new_content"));
+                var changed = by_id.lookup (body.get_int_member ("message_id").to_string ());
+                if (changed != null) {
+                    var fresh = body.get_object_member ("new_content");
+                    changed.text = Content.describe (fresh);
+                    changed.formatted = formatted_of (fresh);
                 }
                 break;
 

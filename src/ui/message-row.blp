@@ -103,6 +103,16 @@ template $TelegramaMessageRow : Box {
         halign: end;
         spacing: 4;
 
+        Label edited_label {
+          label: "edited";
+          visible: false;
+
+          styles [
+            "caption",
+            "dim-label",
+          ]
+        }
+
         Label time_label {
           styles [
             "caption",

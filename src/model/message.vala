@@ -43,6 +43,16 @@ public class Telegrama.Message : Object {
     public bool sending { get; set; default = false; }
     public bool failed { get; set; default = false; }
     public bool read { get; set; default = false; }
+    public bool edited { get; set; default = false; }
+
+    // can_be_edited lives on messageProperties, which is a request per message.
+    // Offering it for our own text and letting the server refuse is cheaper
+    // than asking about every row that scrolls past.
+    public bool editable {
+        get {
+            return is_outgoing && !is_service && !is_media;
+        }
+    }
 
     public Message (int64 id, int64 sender_id, bool is_outgoing, int64 date,
                     bool is_media, bool is_service, bool in_group) {

@@ -56,6 +56,59 @@ template $TelegramaChatView : Adw.Bin {
           }
         }
 
+        Revealer edit_banner {
+          transition-type: slide_up;
+          reveal-child: false;
+
+          child: Box {
+            spacing: 6;
+            margin-start: 8;
+            margin-end: 8;
+            margin-top: 6;
+
+            Box {
+              orientation: vertical;
+              hexpand: true;
+
+              styles [
+                "reply-quote",
+              ]
+
+              Label {
+                label: "Editing";
+                halign: start;
+                xalign: 0;
+
+                styles [
+                  "caption-heading",
+                ]
+              }
+
+              Label edit_preview {
+                halign: start;
+                xalign: 0;
+                ellipsize: end;
+                single-line-mode: true;
+
+                styles [
+                  "caption",
+                ]
+              }
+            }
+
+            Button edit_cancel {
+              icon-name: "window-close-symbolic";
+              tooltip-text: "Stop editing";
+              valign: center;
+
+              styles [
+                "flat",
+                "circular",
+              ]
+            }
+          };
+        }
+
         Box {
           spacing: 6;
           margin-start: 8;
