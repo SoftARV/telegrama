@@ -30,6 +30,9 @@ public class Telegrama.ChatView : Adw.Bin {
     private bool adjusting = false;
     private uint settle_source = 0;
     private Message? editing = null;
+    private Gtk.Popover? menu = null;
+    private Gtk.Button? menu_edit = null;
+    private Message? menu_target = null;
 
     public ChatView (MessageList messages) {
         Object (messages: messages);
@@ -42,6 +45,9 @@ public class Telegrama.ChatView : Adw.Bin {
             var row = new MessageRow (messages.users);
             row.jump.connect (jump_to);
             row.edit_requested.connect (begin_edit);
+            row.menu_requested.connect ((message, x, y) => {
+                open_menu (row, message, x, y);
+            });
             ((Gtk.ListItem) object).child = row;
         });
 
@@ -195,6 +201,70 @@ public class Telegrama.ChatView : Adw.Bin {
                 messages.load_older ();
             }
         });
+    }
+
+    private Gtk.Button menu_item (string label, string icon) {
+        var line = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
+        line.append (new Gtk.Image.from_icon_name (icon));
+        line.append (new Gtk.Label (label) {
+            halign = Gtk.Align.START,
+            hexpand = true
+        });
+
+        var button = new Gtk.Button () { child = line, has_frame = false };
+        button.add_css_class ("message-menu-item");
+        return button;
+    }
+
+    // One popover for the whole view, parented outside the scrolled window.
+    // Parented to a row instead, it inherited the row's recycling: popping it
+    // up pulled focus into the list, which scrolled to reach it, and a row
+    // whose allocation was stale put the menu in the corner of the window.
+    private void open_menu (Gtk.Widget row, Message message, double x, double y) {
+        if (menu == null) {
+            var items = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            items.add_css_class ("message-menu");
+
+            var copy = menu_item ("Copy text", "edit-copy-symbolic");
+            copy.clicked.connect (() => {
+                menu.popdown ();
+                if (menu_target != null) {
+                    Gdk.Display.get_default ().get_clipboard ().set_text (menu_target.text);
+                }
+            });
+            items.append (copy);
+
+            menu_edit = menu_item ("Edit", "document-edit-symbolic");
+            menu_edit.clicked.connect (() => {
+                menu.popdown ();
+                if (menu_target != null) {
+                    begin_edit (menu_target);
+                }
+            });
+            items.append (menu_edit);
+
+            menu = new Gtk.Popover () {
+                child = items,
+                has_arrow = false,
+                autohide = true
+            };
+            menu.add_css_class ("message-menu-popover");
+            menu.set_parent (this);
+        }
+
+        // The click arrives in the row's coordinates; the popover lives in this
+        // view's, so the point has to be translated across.
+        Graphene.Point local = { (float) x, (float) y };
+        Graphene.Point here;
+        if (!row.compute_point (this, local, out here)) {
+            return;
+        }
+
+        menu_target = message;
+        menu_edit.visible = message.editable;
+
+        menu.set_pointing_to ({ (int) here.x, (int) here.y, 1, 1 });
+        menu.popup ();
     }
 
     private void begin_edit (Message target) {

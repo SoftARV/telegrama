@@ -18,13 +18,12 @@ public class Telegrama.MessageRow : Gtk.Box {
 
     public signal void jump (int64 message_id);
     public signal void edit_requested (Message message);
+    public signal void menu_requested (Message message, double x, double y);
 
     public UserStore users { get; construct; }
 
     private Message? message = null;
     private ulong handler = 0;
-    private Gtk.Popover? menu = null;
-    private Gtk.Button? edit_item = null;
 
     public MessageRow (UserStore users) {
         Object (users: users);
@@ -70,7 +69,7 @@ public class Telegrama.MessageRow : Gtk.Box {
                 return;
             }
             secondary.set_state (Gtk.EventSequenceState.CLAIMED);
-            open_menu (x, y);
+            menu_requested (message, x, y);
         });
         add_controller (secondary);
     }
@@ -104,71 +103,6 @@ public class Telegrama.MessageRow : Gtk.Box {
             (int) (colour.green * 255),
             (int) (colour.blue * 255)
         );
-    }
-
-    private Gtk.Button menu_item (string label, string icon) {
-        var row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
-        row.append (new Gtk.Image.from_icon_name (icon));
-        row.append (new Gtk.Label (label) {
-            halign = Gtk.Align.START,
-            hexpand = true
-        });
-
-        var button = new Gtk.Button () {
-            child = row,
-            has_frame = false
-        };
-        button.add_css_class ("message-menu-item");
-        return button;
-    }
-
-    private void open_menu (double x, double y) {
-        if (menu == null) {
-            var items = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-            items.add_css_class ("message-menu");
-
-            var copy = menu_item ("Copy text", "edit-copy-symbolic");
-            copy.clicked.connect (() => {
-                menu.popdown ();
-                if (message != null) {
-                    Gdk.Display.get_default ().get_clipboard ().set_text (message.text);
-                }
-            });
-            items.append (copy);
-
-            edit_item = menu_item ("Edit", "document-edit-symbolic");
-            edit_item.clicked.connect (() => {
-                menu.popdown ();
-                if (message != null) {
-                    edit_requested (message);
-                }
-            });
-            items.append (edit_item);
-
-            menu = new Gtk.Popover () {
-                child = items,
-                has_arrow = false,
-                autohide = true
-            };
-            menu.add_css_class ("message-menu-popover");
-            menu.set_parent (this);
-        }
-
-        // Editing is only ours to offer on our own text.
-        edit_item.visible = message != null && message.editable;
-
-        menu.set_pointing_to ({ (int) x, (int) y, 1, 1 });
-        menu.popup ();
-    }
-
-    // Popovers are parented rather than owned, so GTK wants them taken down by
-    // hand before the row goes.
-    public override void dispose () {
-        if (menu != null) {
-            menu.unparent ();
-            menu = null;
-        }
-        base.dispose ();
     }
 
     // Telegram tucks the stamp onto the last line of a short message rather
