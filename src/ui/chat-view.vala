@@ -40,6 +40,9 @@ public class Telegrama.ChatView : Adw.Bin {
 
     private int64[] candidates = {};
     private int mention_start = -1;
+
+    // Not a user id: the row that writes every member out.
+    private const int64 EVERYONE = 0;
     private ulong mention_handler = 0;
     private uint settle_source = 0;
     private Message? editing = null;
@@ -469,7 +472,7 @@ public class Telegrama.ChatView : Adw.Bin {
         }
 
         var found = yield messages.search_members (query);
-        if (found.length == 0) {
+        if (found.length == 0 && !"all".has_prefix (query.down ())) {
             hide_completions ();
             return;
         }
@@ -481,7 +484,16 @@ public class Telegrama.ChatView : Adw.Bin {
             return;
         }
 
-        candidates = found;
+        candidates = {};
+
+        // Offered while the typed token is still a prefix of "all".
+        if ("all".has_prefix (query.down ())) {
+            candidates += EVERYONE;
+        }
+        foreach (var id in found) {
+            candidates += id;
+        }
+
         mention_start = start;
         show_completions ();
     }
@@ -496,18 +508,27 @@ public class Telegrama.ChatView : Adw.Bin {
                 margin_start = 8, margin_end = 8, margin_top = 4, margin_bottom = 4
             };
 
-            var avatar = new Adw.Avatar (24, messages.users.name_for (id), true);
-            avatar.set_custom_image (messages.users.photo_for (id));
-            line.append (avatar);
-            line.append (new Gtk.Label (messages.users.name_for (id)) {
-                halign = Gtk.Align.START
-            });
-            line.append (new Gtk.Label ("@" + messages.users.username_for (id)) {
-                halign = Gtk.Align.START,
-                hexpand = true
-            });
-            line.get_last_child ().add_css_class ("dim-label");
+            if (id == EVERYONE) {
+                line.append (new Adw.Avatar (24, "@", true));
+                line.append (new Gtk.Label ("Everyone") { halign = Gtk.Align.START });
+                line.append (new Gtk.Label ("mention all the members") {
+                    halign = Gtk.Align.START,
+                    hexpand = true
+                });
+            } else {
+                var avatar = new Adw.Avatar (24, messages.users.name_for (id), true);
+                avatar.set_custom_image (messages.users.photo_for (id));
+                line.append (avatar);
+                line.append (new Gtk.Label (messages.users.name_for (id)) {
+                    halign = Gtk.Align.START
+                });
+                line.append (new Gtk.Label ("@" + messages.users.username_for (id)) {
+                    halign = Gtk.Align.START,
+                    hexpand = true
+                });
+            }
 
+            line.get_last_child ().add_css_class ("dim-label");
             completion_list.append (line);
         }
 
@@ -531,6 +552,12 @@ public class Telegrama.ChatView : Adw.Bin {
             return;
         }
 
+        if (candidates[index] == EVERYONE) {
+            insert_everyone.begin (mention_start);
+            hide_completions ();
+            return;
+        }
+
         var username = messages.users.username_for (candidates[index]);
         var from = mention_start;
         hide_completions ();
@@ -540,6 +567,29 @@ public class Telegrama.ChatView : Adw.Bin {
         entry.buffer.get_iter_at_mark (out end, entry.buffer.get_insert ());
         entry.buffer.delete (ref start, ref end);
         entry.buffer.insert (ref start, @"@$username ", -1);
+    }
+
+    // Telegram sends no such thing as an everyone-mention, so this writes the
+    // members out individually. Only those with a username: the rest cannot be
+    // mentioned by text at all.
+    private async void insert_everyone (int from) {
+        var members = yield messages.mentionable_members ();
+        if (members.length == 0) {
+            return;
+        }
+
+        var text = new StringBuilder ();
+        foreach (var id in members) {
+            text.append ("@");
+            text.append (messages.users.username_for (id));
+            text.append (" ");
+        }
+
+        Gtk.TextIter start, end;
+        entry.buffer.get_iter_at_offset (out start, from);
+        entry.buffer.get_iter_at_mark (out end, entry.buffer.get_insert ());
+        entry.buffer.delete (ref start, ref end);
+        entry.buffer.insert (ref start, text.str, -1);
     }
 
     private void move_completion (int delta) {

@@ -174,8 +174,6 @@ public class Telegrama.MessageList : Object {
         });
     }
 
-    // Walked from the end, since editing almost always means the last thing
-    // said rather than something further back.
     // Members whose username the composer could actually insert. Someone
     // without one can only be mentioned through a text entity, which this
     // client does not yet send, so offering them would insert plain text that
@@ -195,7 +193,7 @@ public class Telegrama.MessageList : Object {
                 b.set_member_name ("query");
                 b.add_string_value (query);
                 b.set_member_name ("limit");
-                b.add_int_value (12);
+                b.add_int_value (query == "" ? EVERYONE_LIMIT : 12);
             });
 
             var members = answer.get_array_member ("members");
@@ -215,6 +213,15 @@ public class Telegrama.MessageList : Object {
         }
 
         return found;
+    }
+
+    // Telegram has no @everyone: a mention names one account. This gathers the
+    // members so the composer can write them all out, which is what the bots
+    // that offer @all are doing underneath.
+    public const int EVERYONE_LIMIT = 50;
+
+    public async int64[] mentionable_members () {
+        return yield search_members ("");
     }
 
     // The oldest unread mention, since that is where reading resumes. TDLib
@@ -285,6 +292,8 @@ public class Telegrama.MessageList : Object {
         return 0;
     }
 
+    // Walked from the end, since editing almost always means the last thing
+    // said rather than something further back.
     public Message? last_editable () {
         for (var i = (int) store.get_n_items () - 1; i >= 0; i--) {
             var message = (Message) store.get_item (i);
