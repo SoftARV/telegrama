@@ -63,19 +63,21 @@ jobs:
       - name: Trust the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - run: meson setup build -Dprofile=release
+
       # A tag that disagrees with meson's version would ship a tarball whose
-      # name contradicts the release it hangs off.
+      # name contradicts the release it hangs off. Introspection needs a
+      # configured build directory, so this comes after setup, not before it.
       - name: Check the tag matches the project version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tagged="${GITHUB_REF_NAME#v}"
-          declared=$(meson introspect --projectinfo . | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          declared=$(meson introspect --projectinfo build | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
           if [ "$tagged" != "$declared" ]; then
             echo "tag $GITHUB_REF_NAME does not match project version $declared" >&2
             exit 1
           fi
 
-      - run: meson setup build
 
       # Builds and tests the extracted tarball, so this also proves the release
       # compiles from a clean tree rather than only from the working copy.

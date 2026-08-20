@@ -9,3 +9,10 @@ option('api_hash',
   value: '',
   description: 'Telegram api_hash, from https://my.telegram.org',
 )
+
+option('profile',
+  type: 'combo',
+  choices: ['development', 'release'],
+  value: 'development',
+  description: 'A development build carries the commit it was built from',
+)

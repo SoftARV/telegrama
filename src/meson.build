@@ -11,14 +11,35 @@ qrencode_dep = cc.find_library('qrencode', required: true)
 conf = configuration_data()
 conf.set('APP_ID', app_id)
 conf.set('APP_PATH', app_path)
-conf.set('VERSION', meson.project_version())
+profile = get_option('profile')
+
+# A development build says which commit it came from; a release is just its
+# version. @COMMIT@ survives configure_file untouched and is filled in by
+# vcs_tag below, which re-runs on every build rather than only on configure —
+# otherwise the hash would go stale the moment anything was committed.
+if profile == 'release'
+  conf.set('VERSION', meson.project_version())
+else
+  conf.set('VERSION', meson.project_version() + '-@COMMIT@-dev')
+endif
+
+conf.set('PROFILE', profile)
+conf.set('COMMIT', '@COMMIT@')
 conf.set('API_ID', get_option('api_id'))
 conf.set('API_HASH', get_option('api_hash'))
 
-config_vala = configure_file(
+config_staged = configure_file(
   input: 'config.vala.in',
-  output: 'config.vala',
+  output: 'config.vala.staged',
   configuration: conf,
+)
+
+config_vala = vcs_tag(
+  input: config_staged,
+  output: 'config.vala',
+  command: ['git', 'rev-parse', '--short', 'HEAD'],
+  replace_string: '@COMMIT@',
+  fallback: 'unknown',
 )
 
 blueprint_compiler = find_program('blueprint-compiler')
