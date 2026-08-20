@@ -159,3 +159,23 @@ popover.message-menu-popover > contents {
 .completions row {
     border-radius: 6px;
 }
+
+.media {
+    border-radius: 8px;
+}
+
+/* Sits over the picture, so it needs its own ground to stay legible against
+   whatever happens to be underneath. */
+.media-badge {
+    background-color: alpha(black, 0.45);
+    border-radius: 999px;
+    padding: 8px;
+    color: white;
+}
+
+.media-note {
+    background-color: alpha(black, 0.45);
+    border-radius: 6px;
+    padding: 1px 6px;
+    color: white;
+}

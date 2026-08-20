@@ -14,6 +14,7 @@ public class Telegrama.MessageList : Object {
 
     public Td.Client client { get; construct; }
     public UserStore users { get; construct; }
+    public MediaLoader loader { get; construct; }
     public ListStore store { get; construct; }
 
     public Chat? chat { get; private set; default = null; }
@@ -33,8 +34,9 @@ public class Telegrama.MessageList : Object {
     private uint seen_source = 0;
     private uint activity_source = 0;
 
-    public MessageList (Td.Client client, UserStore users) {
-        Object (client: client, users: users, store: new ListStore (typeof (Message)));
+    public MessageList (Td.Client client, UserStore users, MediaLoader loader) {
+        Object (client: client, users: users, loader: loader,
+                store: new ListStore (typeof (Message)));
     }
 
     construct {
@@ -506,7 +508,10 @@ public class Telegrama.MessageList : Object {
             message.text = Content.notice (content, users.name_for (message.sender_id));
         } else {
             resolve_reply (message, source);
-            message.text = Content.full (source);
+            message.media = Content.media_of (content);
+            message.text = message.media == null
+                ? Content.full (source)
+                : Content.caption_text (content);
             message.formatted = formatted_of (content);
         }
 

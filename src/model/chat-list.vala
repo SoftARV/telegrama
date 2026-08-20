@@ -5,19 +5,20 @@ public class Telegrama.ChatList : Object {
     private const int PAGE = 40;
 
     public Td.Client client { get; construct; }
+    public FileStore files { get; construct; }
     public AuthSession auth { get; construct; }
     public ListStore store { get; construct; }
 
     private HashTable<string, Chat> by_id = new HashTable<string, Chat> (str_hash, str_equal);
 
     // Chats waiting on an avatar, keyed by the TDLib file id they are waiting for.
-    private HashTable<string, Chat> awaiting_photo = new HashTable<string, Chat> (str_hash, str_equal);
     private uint resort_source = 0;
     private bool loading = false;
     private bool exhausted = false;
 
-    public ChatList (Td.Client client, AuthSession auth) {
-        Object (client: client, auth: auth, store: new ListStore (typeof (Chat)));
+    public ChatList (Td.Client client, AuthSession auth, FileStore files) {
+        Object (client: client, auth: auth, files: files,
+                store: new ListStore (typeof (Chat)));
     }
 
     construct {
@@ -82,7 +83,6 @@ public class Telegrama.ChatList : Object {
     private void reset () {
         store.remove_all ();
         by_id.remove_all ();
-        awaiting_photo.remove_all ();
         exhausted = false;
     }
 
@@ -100,10 +100,6 @@ public class Telegrama.ChatList : Object {
                 apply_photo (lookup (body), body.has_member ("photo")
                     ? body.get_object_member ("photo")
                     : null);
-                break;
-
-            case "updateFile":
-                apply_downloaded (body.get_object_member ("file"));
                 break;
 
             case "updateChatLastMessage":
@@ -182,47 +178,14 @@ public class Telegrama.ChatList : Object {
             return;
         }
 
-        var small = info.get_object_member ("small");
-        var id = ((int) small.get_int_member ("id")).to_string ();
-        var local = small.get_object_member ("local");
-
-        // Already on disk from an earlier run: TDLib keeps its file cache across
-        // sessions, so most avatars never need downloading twice.
-        if (local.get_boolean_member ("is_downloading_completed")) {
-            load_photo (chat, local.get_string_member ("path"));
-            return;
-        }
-
-        awaiting_photo.insert (id, chat);
-        client.send ("downloadFile", (b) => {
-            b.set_member_name ("file_id");
-            b.add_int_value (small.get_int_member ("id"));
-            b.set_member_name ("priority");
-            b.add_int_value (16);
-            b.set_member_name ("offset");
-            b.add_int_value (0);
-            b.set_member_name ("limit");
-            b.add_int_value (0);
-            b.set_member_name ("synchronous");
-            b.add_boolean_value (false);
-        });
+        fetch_photo.begin (chat, info.get_object_member ("small"));
     }
 
-    // updateFile arrives for every download in flight, most of which are not ours.
-    private void apply_downloaded (Json.Object file) {
-        var id = ((int) file.get_int_member ("id")).to_string ();
-        var chat = awaiting_photo.lookup (id);
-        if (chat == null) {
-            return;
+    private async void fetch_photo (Chat chat, Json.Object file) {
+        var path = yield files.fetch_file (file);
+        if (path != "") {
+            load_photo (chat, path);
         }
-
-        var local = file.get_object_member ("local");
-        if (!local.get_boolean_member ("is_downloading_completed")) {
-            return;
-        }
-
-        awaiting_photo.remove (id);
-        load_photo (chat, local.get_string_member ("path"));
     }
 
     // Avatars are a few kilobytes, so the read is not worth an async round trip.

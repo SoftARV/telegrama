@@ -81,8 +81,11 @@ sources = files(
   'model/auth.vala',
   'model/chat.vala',
   'model/chat-list.vala',
+  'model/media.vala',
+  'model/media-loader.vala',
   'model/message.vala',
   'model/message-list.vala',
+  'model/file-store.vala',
   'model/user-store.vala',
   'notify/notifier.vala',
   'tray/status-notifier.vala',
@@ -97,6 +100,7 @@ sources = files(
   'util/keyring.vala',
   'util/dates.vala',
   'util/content.vala',
+  'util/media-content.vala',
   'util/entities.vala',
 )
 

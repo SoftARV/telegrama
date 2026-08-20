@@ -58,7 +58,7 @@ public class Telegrama.ChatView : Adw.Bin {
         var factory = new Gtk.SignalListItemFactory ();
 
         factory.setup.connect ((object) => {
-            var row = new MessageRow (messages.users);
+            var row = new MessageRow (messages.users, messages.loader);
             row.jump.connect (jump_to);
             row.edit_requested.connect (begin_edit);
             row.menu_requested.connect ((message, x, y) => {

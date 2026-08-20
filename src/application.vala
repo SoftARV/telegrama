@@ -4,6 +4,8 @@ public class Telegrama.Application : Adw.Application {
     private AuthSession auth;
     private ChatList chats;
     private UserStore users;
+    private FileStore downloads;
+    private MediaLoader loader;
     private MessageList messages;
     private Notifier notifier;
     private TrayIcon tray;
@@ -30,9 +32,11 @@ public class Telegrama.Application : Adw.Application {
 
         client = new Td.Client ();
         auth = new AuthSession (client);
-        chats = new ChatList (client, auth);
-        users = new UserStore (client);
-        messages = new MessageList (client, users);
+        downloads = new FileStore (client);
+        loader = new MediaLoader (downloads);
+        chats = new ChatList (client, auth, downloads);
+        users = new UserStore (client, downloads);
+        messages = new MessageList (client, users, loader);
         notifier = new Notifier (this, client, auth, chats, users);
 
         // Tied to background mode rather than a setting of its own: the icon
