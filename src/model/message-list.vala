@@ -176,6 +176,34 @@ public class Telegrama.MessageList : Object {
 
     // Walked from the end, since editing almost always means the last thing
     // said rather than something further back.
+    // A mention names either a public username or a user id; both have to
+    // become a chat before anything can be opened.
+    public async int64 resolve_mention (string target) {
+        try {
+            if (target.has_prefix ("u/")) {
+                var found = yield client.request ("searchPublicChat", (b) => {
+                    b.set_member_name ("username");
+                    b.add_string_value (target.substring (2));
+                });
+                return found.get_int_member ("id");
+            }
+
+            if (target.has_prefix ("i/")) {
+                var found = yield client.request ("createPrivateChat", (b) => {
+                    b.set_member_name ("user_id");
+                    b.add_int_value (int64.parse (target.substring (2)));
+                    b.set_member_name ("force");
+                    b.add_boolean_value (false);
+                });
+                return found.get_int_member ("id");
+            }
+        } catch (Td.ClientError e) {
+            warning ("%s", e.message);
+        }
+
+        return 0;
+    }
+
     public Message? last_editable () {
         for (var i = (int) store.get_n_items () - 1; i >= 0; i--) {
             var message = (Message) store.get_item (i);

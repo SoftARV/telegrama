@@ -19,6 +19,7 @@ public class Telegrama.MessageRow : Gtk.Box {
     public signal void jump (int64 message_id);
     public signal void edit_requested (Message message);
     public signal void menu_requested (Message message, double x, double y);
+    public signal void mention_activated (string target);
 
     public UserStore users { get; construct; }
 
@@ -48,6 +49,16 @@ public class Telegrama.MessageRow : Gtk.Box {
             }
         });
         text_label.add_controller (reveal);
+
+        // Real links keep GTK's own handling; ours are intercepted before it
+        // tries to hand a telegrama: URL to a browser.
+        text_label.activate_link.connect ((uri) => {
+            if (!uri.has_prefix ("telegrama:")) {
+                return false;
+            }
+            mention_activated (uri.substring ("telegrama:".length));
+            return true;
+        });
 
         var follow = new Gtk.GestureClick ();
         follow.released.connect (() => {

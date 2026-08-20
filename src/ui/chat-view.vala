@@ -18,6 +18,8 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.Revealer jump_down;
     [GtkChild] private unowned Gtk.Button to_bottom_button;
 
+    public signal void chat_requested (int64 chat_id);
+
     public MessageList messages { get; construct; }
 
     // Distance from the bottom to restore once the newly prepended rows have
@@ -48,6 +50,9 @@ public class Telegrama.ChatView : Adw.Bin {
             row.edit_requested.connect (begin_edit);
             row.menu_requested.connect ((message, x, y) => {
                 open_menu (row, message, x, y);
+            });
+            row.mention_activated.connect ((target) => {
+                follow_mention.begin (target);
             });
             ((Gtk.ListItem) object).child = row;
         });
@@ -364,6 +369,13 @@ public class Telegrama.ChatView : Adw.Bin {
         // Sending scrolls back down: it would be odd to send and not see it.
         set_follow (true);
         messages.send (text);
+    }
+
+    private async void follow_mention (string target) {
+        var chat_id = yield messages.resolve_mention (target);
+        if (chat_id != 0) {
+            chat_requested (chat_id);
+        }
     }
 
     private void jump_to (int64 message_id) {
