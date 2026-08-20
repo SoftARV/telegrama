@@ -36,6 +36,10 @@ public class Telegrama.ChatList : Object {
         }
     }
 
+    public Chat? find (int64 id) {
+        return by_id.lookup (id.to_string ());
+    }
+
     public async void load () {
         if (loading || exhausted) {
             return;

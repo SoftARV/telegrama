@@ -5,6 +5,7 @@ public class Telegrama.Application : Adw.Application {
     private ChatList chats;
     private UserStore users;
     private MessageList messages;
+    private Notifier notifier;
     private Window? window = null;
     private bool closing = false;
 
@@ -29,8 +30,20 @@ public class Telegrama.Application : Adw.Application {
         chats = new ChatList (client, auth);
         users = new UserStore (client);
         messages = new MessageList (client, users);
+        notifier = new Notifier (this, client, auth, chats, users);
         client.start ();
         auth.start.begin ();
+
+        // Carries an int64 chat id, so a notification can say which chat it came
+        // from rather than merely raising the window.
+        var open_chat = new SimpleAction ("open-chat", new VariantType ("x"));
+        open_chat.activate.connect ((parameter) => {
+            activate ();
+            if (window != null && parameter != null) {
+                window.open_chat (parameter.get_int64 ());
+            }
+        });
+        add_action (open_chat);
 
         var about_action = new SimpleAction ("about", null);
         about_action.activate.connect (show_about);

@@ -6,3 +6,4 @@ subprojects/*/
 *.swp
 CLAUDE.local.md
 local.ini
+.mcp.json

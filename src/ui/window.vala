@@ -92,6 +92,22 @@ public class Telegrama.Window : Adw.ApplicationWindow {
         });
     }
 
+    // Reached from a notification, which knows a chat id and nothing else.
+    public void open_chat (int64 chat_id) {
+        var model = chat_view.model as Gtk.SingleSelection;
+        if (model == null) {
+            return;
+        }
+
+        for (uint i = 0; i < model.get_n_items (); i++) {
+            if (((Chat) model.get_item (i)).id == chat_id) {
+                model.selected = i;
+                split.show_content = true;
+                return;
+            }
+        }
+    }
+
     private void sync_stage () {
         stack.visible_child_name = auth.stage == AuthStage.READY ? "main" : "login";
     }
