@@ -13,6 +13,7 @@ public class Telegrama.UserStore : Object {
 
     private class Contact {
         public string name = "";
+        public string username = "";
         public int accent = -1;
         public int photo_id = 0;
         public Gdk.Paintable? photo = null;
@@ -56,6 +57,11 @@ public class Telegrama.UserStore : Object {
         return contact == null ? "" : contact.name;
     }
 
+    public string username_for (int64 user_id) {
+        var contact = people.lookup (user_id.to_string ());
+        return contact == null ? "" : contact.username;
+    }
+
     public Gdk.Paintable? photo_for (int64 user_id) {
         var contact = people.lookup (user_id.to_string ());
         return contact == null ? null : contact.photo;
@@ -96,6 +102,16 @@ public class Telegrama.UserStore : Object {
         var first = user.get_string_member ("first_name");
         var last = user.get_string_member ("last_name");
         contact.name = (last == "" ? first : @"$first $last").strip ();
+
+        if (user.has_member ("usernames")) {
+            var names = user.get_object_member ("usernames");
+            if (names.has_member ("active_usernames")) {
+                var active = names.get_array_member ("active_usernames");
+                if (active.get_length () > 0) {
+                    contact.username = active.get_string_element (0);
+                }
+            }
+        }
 
         if (user.has_member ("accent_color_id")) {
             contact.accent = (int) user.get_int_member ("accent_color_id");

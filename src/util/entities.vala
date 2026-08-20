@@ -146,6 +146,18 @@ namespace Telegrama.Entities {
                 return type.has_member ("url") ? type.get_string_member ("url") : "";
             case "textEntityTypeUrl":
                 return covered;
+
+            // A private scheme rather than a real URL: the label makes these
+            // clickable, and the row intercepts them before GTK tries to hand
+            // them to a browser.
+            case "textEntityTypeMention":
+                return covered.has_prefix ("@")
+                    ? "telegrama:u/" + covered.substring (1)
+                    : "telegrama:u/" + covered;
+            case "textEntityTypeMentionName":
+                return type.has_member ("user_id")
+                    ? "telegrama:i/" + type.get_int_member ("user_id").to_string ()
+                    : "";
             case "textEntityTypeEmailAddress":
                 return "mailto:" + covered;
             default:
@@ -182,6 +194,8 @@ namespace Telegrama.Entities {
             case "textEntityTypeTextUrl":
             case "textEntityTypeUrl":
             case "textEntityTypeEmailAddress":
+            case "textEntityTypeMention":
+            case "textEntityTypeMentionName":
                 if (span.url == "") {
                     return { "", "" };
                 }

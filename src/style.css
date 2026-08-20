@@ -151,3 +151,11 @@ popover.message-menu-popover > contents {
 .message-menu-item.destructive label {
     color: @destructive_color;
 }
+
+.completions {
+    background: none;
+}
+
+.completions row {
+    border-radius: 6px;
+}

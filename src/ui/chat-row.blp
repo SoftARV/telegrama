@@ -64,6 +64,17 @@ template $TelegramaChatRow : Box {
         ]
       }
 
+      Label mention_label {
+        label: "@";
+        visible: false;
+        halign: end;
+        valign: center;
+
+        styles [
+          "unread-badge",
+        ]
+      }
+
       Label unread_label {
         halign: end;
         valign: center;

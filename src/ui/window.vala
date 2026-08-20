@@ -34,7 +34,9 @@ public class Telegrama.Window : Adw.ApplicationWindow {
 
     construct {
         login_slot.child = new LoginView (auth);
-        conversation_slot.child = new ChatView (messages);
+        var conversation = new ChatView (messages);
+        conversation.chat_requested.connect (open_chat);
+        conversation_slot.child = conversation;
 
         prefs.bind ("window-width", this, "default-width", SettingsBindFlags.DEFAULT);
         prefs.bind ("window-height", this, "default-height", SettingsBindFlags.DEFAULT);
@@ -147,6 +149,18 @@ public class Telegrama.Window : Adw.ApplicationWindow {
                 split.show_content = true;
                 return;
             }
+        }
+
+        // Following a mention can reach someone who is not in the chat list at
+        // all. TDLib still knows the chat, so it opens without a sidebar row
+        // to select.
+        var known = chats.find (chat_id);
+        if (known != null) {
+            model.selected = Gtk.INVALID_LIST_POSITION;
+            content_page.title = known.title;
+            chat_title.title = known.title;
+            messages.open (known);
+            split.show_content = true;
         }
     }
 
