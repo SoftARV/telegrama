@@ -26,6 +26,9 @@ public class Telegrama.Chat : Object {
     // file rather than something already decoded.
     public string photo_path { get; set; default = ""; }
 
+    // Unsent text, kept by Telegram and shared with the user's other clients.
+    public string draft { get; set; default = ""; }
+
     public Chat (int64 id) {
         Object (id: id);
     }

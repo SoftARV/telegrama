@@ -186,6 +186,37 @@ public class Telegrama.MessageList : Object {
         return null;
     }
 
+    // Telegram keeps drafts server-side, so this also reaches the user's phone.
+    // An empty draft clears it rather than storing a blank one.
+    public void keep_draft (int64 chat_id, string text) {
+        client.send ("setChatDraftMessage", (b) => {
+            b.set_member_name ("chat_id");
+            b.add_int_value (chat_id);
+
+            if (text.strip () == "") {
+                return;
+            }
+
+            b.set_member_name ("draft_message");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("draftMessage");
+            b.set_member_name ("content");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("draftMessageContentText");
+            b.set_member_name ("text");
+            b.begin_object ();
+            b.set_member_name ("@type");
+            b.add_string_value ("formattedText");
+            b.set_member_name ("text");
+            b.add_string_value (text);
+            b.end_object ();
+            b.end_object ();
+            b.end_object ();
+        });
+    }
+
     // Batched: binding a screenful of rows would otherwise be a request each.
     public void saw (int64 message_id) {
         if (chat == null) {

@@ -105,7 +105,11 @@ public class Telegrama.ChatList : Object {
                 break;
 
             case "updateChatDraftMessage":
-                apply_positions (lookup (body), body.get_array_member ("positions"));
+                var drafted = lookup (body);
+                drafted.draft = draft_of (body.has_member ("draft_message")
+                    ? body.get_object_member ("draft_message")
+                    : null);
+                apply_positions (drafted, body.get_array_member ("positions"));
                 break;
 
             case "updateChatReadOutbox":
@@ -140,6 +144,10 @@ public class Telegrama.ChatList : Object {
         if (source.has_member ("last_message")) {
             apply_last_message (chat, source.get_object_member ("last_message"));
         }
+
+        chat.draft = draft_of (source.has_member ("draft_message")
+            ? source.get_object_member ("draft_message")
+            : null);
 
         apply_photo (chat, source.has_member ("photo") ? source.get_object_member ("photo") : null);
         apply_positions (chat, source.get_array_member ("positions"));
@@ -296,6 +304,21 @@ public class Telegrama.ChatList : Object {
         }
 
         return chat;
+    }
+
+    // Only text drafts are ours to restore; anything else came from a client
+    // that can compose things this one cannot.
+    private static string draft_of (Json.Object? draft) {
+        if (draft == null || !draft.has_member ("content")) {
+            return "";
+        }
+
+        var content = draft.get_object_member ("content");
+        if (content.get_string_member ("@type") != "draftMessageContentText") {
+            return "";
+        }
+
+        return content.get_object_member ("text").get_string_member ("text");
     }
 
     private static bool is_group (Json.Object source) {

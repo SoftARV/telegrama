@@ -1,4 +1,4 @@
-l// Notifications come from TDLib's own notification groups rather than from raw
+// Notifications come from TDLib's own notification groups rather than from raw
 // new-message updates. TDLib already knows what is muted, what has been read
 // elsewhere and what belongs together; deciding any of that here would produce
 // notifications for messages the user has already seen on their phone.
