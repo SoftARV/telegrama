@@ -5,8 +5,12 @@ public class Telegrama.Application : Adw.Application {
     private ChatList chats;
     private UserStore users;
     private MessageList messages;
+    private Notifier notifier;
+    private TrayIcon tray;
     private Window? window = null;
     private bool closing = false;
+    private bool holding = false;
+    private Settings prefs = new Settings (Config.APP_ID);
 
     public Application () {
         Object (application_id: Config.APP_ID,
@@ -29,8 +33,46 @@ public class Telegrama.Application : Adw.Application {
         chats = new ChatList (client, auth);
         users = new UserStore (client);
         messages = new MessageList (client, users);
+        notifier = new Notifier (this, client, auth, chats, users);
+
+        // Tied to background mode rather than a setting of its own: the icon
+        // exists to say the process is still there once the window is gone.
+        tray = new TrayIcon ();
+        tray.show_requested.connect (() => {
+            activate ();
+        });
+        tray.set_enabled (prefs.get_boolean ("run-in-background"));
+        tray.start ();
         client.start ();
         auth.start.begin ();
+
+        // Carries an int64 chat id, so a notification can say which chat it came
+        // from rather than merely raising the window.
+        var open_chat = new SimpleAction ("open-chat", new VariantType ("x"));
+        open_chat.activate.connect ((parameter) => {
+            activate ();
+            if (window != null && parameter != null) {
+                window.open_chat (parameter.get_int64 ());
+            }
+        });
+        add_action (open_chat);
+
+        var preferences = new SimpleAction ("preferences", null);
+        preferences.activate.connect (() => {
+            new Preferences (prefs, client).present (active_window);
+        });
+        add_action (preferences);
+
+        // Switching it off while the window is already hidden would otherwise
+        // leave the process alive with nothing on screen.
+        prefs.changed["run-in-background"].connect (() => {
+            var on = prefs.get_boolean ("run-in-background");
+            tray.set_enabled (on);
+
+            if (!on) {
+                release_hold ();
+            }
+        });
 
         var about_action = new SimpleAction ("about", null);
         about_action.activate.connect (show_about);
@@ -43,6 +85,7 @@ public class Telegrama.Application : Adw.Application {
         add_action (quit_action);
 
         set_accels_for_action ("app.quit", { "<Control>q" });
+        set_accels_for_action ("app.preferences", { "<Control>comma" });
         set_accels_for_action ("app.about", { "F1" });
     }
 
@@ -50,14 +93,38 @@ public class Telegrama.Application : Adw.Application {
         if (window == null) {
             window = new Window (this, auth, chats, messages);
 
-            // Closing has to wait for TDLib to acknowledge, otherwise the
-            // database is left to recover on next launch.
             window.close_request.connect (() => {
+                // Notifications only arrive while the process lives, so closing
+                // the window hides it rather than ending it.
+                if (prefs.get_boolean ("run-in-background")) {
+                    window.set_visible (false);
+                    take_hold ();
+                    return true;
+                }
+
+                // Closing has to wait for TDLib to acknowledge, otherwise the
+                // database is left to recover on next launch.
                 shut_down.begin ();
                 return true;
             });
         }
+        window.set_visible (true);
         window.present ();
+    }
+
+    // GApplication ends once nothing holds it; a hidden window does not count.
+    private void take_hold () {
+        if (!holding) {
+            hold ();
+            holding = true;
+        }
+    }
+
+    private void release_hold () {
+        if (holding) {
+            release ();
+            holding = false;
+        }
     }
 
     private async void shut_down () {
@@ -65,6 +132,7 @@ public class Telegrama.Application : Adw.Application {
             return;
         }
         closing = true;
+        release_hold ();
 
         yield client.stop ();
         quit ();

@@ -30,6 +30,12 @@ template $TelegramaWindow : Adw.ApplicationWindow {
             child: Adw.ToolbarView {
               [top]
               Adw.HeaderBar {
+                [start]
+                ToggleButton search_toggle {
+                  icon-name: "system-search-symbolic";
+                  tooltip-text: "Search chats";
+                }
+
                 [end]
                 MenuButton {
                   icon-name: "open-menu-symbolic";
@@ -39,14 +45,57 @@ template $TelegramaWindow : Adw.ApplicationWindow {
                 }
               }
 
-              content: ScrolledWindow chat_scroll {
-                hscrollbar-policy: never;
-
-                child: ListView chat_view {
-                  styles [
-                    "navigation-sidebar",
-                  ]
+              [top]
+              SearchBar search_bar {
+                child: SearchEntry search_entry {
+                  hexpand: true;
+                  placeholder-text: "Search chats";
                 };
+              }
+
+              content: Stack sidebar_stack {
+                transition-type: crossfade;
+
+                StackPage {
+                  name: "chats";
+
+                  child: ScrolledWindow chat_scroll {
+                    hscrollbar-policy: never;
+
+                    child: ListView chat_view {
+                      styles [
+                        "navigation-sidebar",
+                      ]
+                    };
+                  };
+                }
+
+                StackPage {
+                  name: "empty";
+
+                  child: Adw.StatusPage {
+                    icon-name: "chat-message-new-symbolic";
+                    title: "No chats yet";
+                    description: "Conversations you start or receive will appear here.";
+
+                    styles [
+                      "compact",
+                    ]
+                  };
+                }
+
+                StackPage {
+                  name: "no-results";
+
+                  child: Adw.StatusPage no_results {
+                    icon-name: "system-search-symbolic";
+                    title: "No matches";
+
+                    styles [
+                      "compact",
+                    ]
+                  };
+                }
               };
             };
           };
@@ -70,6 +119,13 @@ template $TelegramaWindow : Adw.ApplicationWindow {
 }
 
 menu primary_menu {
+  section {
+    item {
+      label: "_Preferences";
+      action: "app.preferences";
+    }
+  }
+
   section {
     item {
       label: "_About Telegrama";

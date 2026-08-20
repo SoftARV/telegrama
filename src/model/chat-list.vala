@@ -36,6 +36,10 @@ public class Telegrama.ChatList : Object {
         }
     }
 
+    public Chat? find (int64 id) {
+        return by_id.lookup (id.to_string ());
+    }
+
     public async void load () {
         if (loading || exhausted) {
             return;
@@ -59,6 +63,20 @@ public class Telegrama.ChatList : Object {
         }
 
         loading = false;
+    }
+
+    // Searching can only find what has been loaded, and chats arrive a page at
+    // a time as the sidebar is scrolled. This pulls the remainder in so a query
+    // is answered against the whole list rather than the visible part of it.
+    public async void load_all () {
+        for (var page = 0; page < 25 && !exhausted; page++) {
+            var before = store.get_n_items ();
+            yield load ();
+
+            if (store.get_n_items () == before) {
+                return;
+            }
+        }
     }
 
     private void reset () {
@@ -101,7 +119,11 @@ public class Telegrama.ChatList : Object {
                 break;
 
             case "updateChatDraftMessage":
-                apply_positions (lookup (body), body.get_array_member ("positions"));
+                var drafted = lookup (body);
+                drafted.draft = draft_of (body.has_member ("draft_message")
+                    ? body.get_object_member ("draft_message")
+                    : null);
+                apply_positions (drafted, body.get_array_member ("positions"));
                 break;
 
             case "updateChatReadOutbox":
@@ -136,6 +158,10 @@ public class Telegrama.ChatList : Object {
         if (source.has_member ("last_message")) {
             apply_last_message (chat, source.get_object_member ("last_message"));
         }
+
+        chat.draft = draft_of (source.has_member ("draft_message")
+            ? source.get_object_member ("draft_message")
+            : null);
 
         apply_photo (chat, source.has_member ("photo") ? source.get_object_member ("photo") : null);
         apply_positions (chat, source.get_array_member ("positions"));
@@ -198,6 +224,7 @@ public class Telegrama.ChatList : Object {
 
         try {
             chat.photo = Gdk.Texture.from_filename (path);
+            chat.photo_path = path;
         } catch (Error e) {
             warning ("could not load avatar %s: %s", path, e.message);
         }
@@ -291,6 +318,21 @@ public class Telegrama.ChatList : Object {
         }
 
         return chat;
+    }
+
+    // Only text drafts are ours to restore; anything else came from a client
+    // that can compose things this one cannot.
+    private static string draft_of (Json.Object? draft) {
+        if (draft == null || !draft.has_member ("content")) {
+            return "";
+        }
+
+        var content = draft.get_object_member ("content");
+        if (content.get_string_member ("@type") != "draftMessageContentText") {
+            return "";
+        }
+
+        return content.get_object_member ("text").get_string_member ("text");
     }
 
     private static bool is_group (Json.Object source) {

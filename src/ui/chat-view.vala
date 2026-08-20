@@ -28,6 +28,7 @@ public class Telegrama.ChatView : Adw.Bin {
     private uint flash_source = 0;
     private bool flash_variant = false;
     private bool adjusting = false;
+    private Chat? drafting = null;
     private uint settle_source = 0;
     private Message? editing = null;
     private Gtk.Popover? menu = null;
@@ -128,16 +129,28 @@ public class Telegrama.ChatView : Adw.Bin {
         });
 
         messages.notify["chat"].connect (() => {
+            // Read before cancel_edit, which empties the composer. An edit in
+            // progress is not a draft: it belongs to the message being edited.
+            if (drafting != null && editing == null) {
+                messages.keep_draft (drafting.id, entry.buffer.text);
+            }
+            drafting = messages.chat;
+
             cancel_edit ();
             set_follow (true);
             anchor = -1;
             stack.visible_child_name = messages.chat == null ? "empty" : "messages";
 
             if (messages.chat != null) {
+                entry.buffer.text = messages.chat.draft;
+
                 // Deferred: the stack has only just been told to show this page,
                 // and a widget that is not mapped yet cannot take focus.
                 Idle.add (() => {
                     entry.grab_focus ();
+                    Gtk.TextIter end;
+                    entry.buffer.get_end_iter (out end);
+                    entry.buffer.place_cursor (end);
                     return Source.REMOVE;
                 });
             }
@@ -344,6 +357,9 @@ public class Telegrama.ChatView : Adw.Bin {
         }
 
         entry.buffer.text = "";
+        if (messages.chat != null) {
+            messages.keep_draft (messages.chat.id, "");
+        }
 
         // Sending scrolls back down: it would be odd to send and not see it.
         set_follow (true);
