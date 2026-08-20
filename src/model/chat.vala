@@ -22,6 +22,10 @@ public class Telegrama.Chat : Object {
     // Adw.Avatar fall back to initials.
     public Gdk.Paintable? photo { get; set; default = null; }
 
+    // Kept alongside the texture: notifications take a GIcon, which wants a
+    // file rather than something already decoded.
+    public string photo_path { get; set; default = ""; }
+
     public Chat (int64 id) {
         Object (id: id);
     }

@@ -1,4 +1,4 @@
-// Notifications come from TDLib's own notification groups rather than from raw
+l// Notifications come from TDLib's own notification groups rather than from raw
 // new-message updates. TDLib already knows what is muted, what has been read
 // elsewhere and what belongs together; deciding any of that here would produce
 // notifications for messages the user has already seen on their phone.
@@ -98,6 +98,12 @@ public class Telegrama.Notifier : Object {
 
         var note = new Notification (title);
         note.set_body (body);
+
+        // The chat's own picture, which in a private chat is the person's.
+        // TDLib has usually fetched it long before any notification fires.
+        if (chat != null && chat.photo_path != "") {
+            note.set_icon (new FileIcon (File.new_for_path (chat.photo_path)));
+        }
         note.set_category ("im.received");
         note.set_default_action_and_target_value (
             "app.open-chat", new Variant.int64 (chat_id));

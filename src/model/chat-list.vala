@@ -202,6 +202,7 @@ public class Telegrama.ChatList : Object {
 
         try {
             chat.photo = Gdk.Texture.from_filename (path);
+            chat.photo_path = path;
         } catch (Error e) {
             warning ("could not load avatar %s: %s", path, e.message);
         }
