@@ -65,6 +65,20 @@ public class Telegrama.ChatList : Object {
         loading = false;
     }
 
+    // Searching can only find what has been loaded, and chats arrive a page at
+    // a time as the sidebar is scrolled. This pulls the remainder in so a query
+    // is answered against the whole list rather than the visible part of it.
+    public async void load_all () {
+        for (var page = 0; page < 25 && !exhausted; page++) {
+            var before = store.get_n_items ();
+            yield load ();
+
+            if (store.get_n_items () == before) {
+                return;
+            }
+        }
+    }
+
     private void reset () {
         store.remove_all ();
         by_id.remove_all ();

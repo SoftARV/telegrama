@@ -7,6 +7,11 @@ public class Telegrama.Window : Adw.ApplicationWindow {
     [GtkChild] private unowned Adw.NavigationSplitView split;
     [GtkChild] private unowned Gtk.ScrolledWindow chat_scroll;
     [GtkChild] private unowned Gtk.ListView chat_view;
+    [GtkChild] private unowned Gtk.ToggleButton search_toggle;
+    [GtkChild] private unowned Gtk.SearchBar search_bar;
+    [GtkChild] private unowned Gtk.SearchEntry search_entry;
+    [GtkChild] private unowned Gtk.Stack sidebar_stack;
+    [GtkChild] private unowned Adw.StatusPage no_results;
     [GtkChild] private unowned Adw.NavigationPage content_page;
     [GtkChild] private unowned Adw.WindowTitle chat_title;
     [GtkChild] private unowned Adw.Bin conversation_slot;
@@ -18,6 +23,9 @@ public class Telegrama.Window : Adw.ApplicationWindow {
     // Not "settings": Gtk.Widget already has get_settings(), and a property of
     // that name would silently override it.
     public Settings prefs { get; construct; }
+
+    private Gtk.FilterListModel? filtered = null;
+    private string query = "";
 
     public Window (Gtk.Application app, AuthSession auth, ChatList chats, MessageList messages) {
         Object (application: app, auth: auth, chats: chats, messages: messages,
@@ -42,6 +50,7 @@ public class Telegrama.Window : Adw.ApplicationWindow {
         });
 
         setup_chat_list ();
+        sync_sidebar ();
         sync_stage ();
     }
 
@@ -61,7 +70,36 @@ public class Telegrama.Window : Adw.ApplicationWindow {
             ((ChatRow) ((Gtk.ListItem) object).child).unbind ();
         });
 
-        var selection = new Gtk.SingleSelection (chats.store) {
+        var filter = new Gtk.CustomFilter ((item) => {
+            if (query == "") {
+                return true;
+            }
+            return ((Chat) item).title.down ().contains (query);
+        });
+        filtered = new Gtk.FilterListModel (chats.store, filter);
+
+        search_toggle.bind_property ("active", search_bar, "search-mode-enabled",
+            BindingFlags.BIDIRECTIONAL);
+        search_bar.set_key_capture_widget (this);
+
+        search_entry.search_changed.connect (() => {
+            query = search_entry.text.strip ().down ();
+            filter.changed (Gtk.FilterChange.DIFFERENT);
+
+            // A query can only match what is loaded, so the first keystroke
+            // pulls the rest of the list in behind it.
+            if (query != "") {
+                chats.load_all.begin ();
+            }
+
+            sync_sidebar ();
+        });
+
+        filtered.items_changed.connect (() => {
+            sync_sidebar ();
+        });
+
+        var selection = new Gtk.SingleSelection (filtered) {
             autoselect = false,
             can_unselect = true
         };
@@ -94,6 +132,10 @@ public class Telegrama.Window : Adw.ApplicationWindow {
 
     // Reached from a notification, which knows a chat id and nothing else.
     public void open_chat (int64 chat_id) {
+        // A chat reached from a notification may not match the current query,
+        // so the search is dropped rather than hiding what was just asked for.
+        search_bar.search_mode_enabled = false;
+
         var model = chat_view.model as Gtk.SingleSelection;
         if (model == null) {
             return;
@@ -106,6 +148,27 @@ public class Telegrama.Window : Adw.ApplicationWindow {
                 return;
             }
         }
+    }
+
+    // An empty list means two different things, and saying the wrong one is
+    // worse than saying nothing: no chats at all, or none matching a query.
+    private void sync_sidebar () {
+        if (filtered == null) {
+            return;
+        }
+
+        if (filtered.get_n_items () > 0) {
+            sidebar_stack.visible_child_name = "chats";
+            return;
+        }
+
+        if (query != "") {
+            no_results.description = @"Nothing matches \u201C$(search_entry.text.strip ())\u201D.";
+            sidebar_stack.visible_child_name = "no-results";
+            return;
+        }
+
+        sidebar_stack.visible_child_name = "empty";
     }
 
     private void sync_stage () {
