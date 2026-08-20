@@ -13,7 +13,7 @@
   },
   {
     "label": "Run",
-    "command": "pkill -x telegrama; ninja -C build && GSETTINGS_SCHEMA_DIR=\"$ZED_WORKTREE_ROOT/build/data\" ./build/src/telegrama",
+    "command": "pkill -x telegrama; ninja -C build && GSETTINGS_SCHEMA_DIR=\"$ZED_WORKTREE_ROOT/build/data\" TELEGRAMA_ICON_PATH=\"$ZED_WORKTREE_ROOT/data/icons/hicolor/scalable/apps\" ./build/src/telegrama",
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": false,

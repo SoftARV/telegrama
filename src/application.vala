@@ -6,6 +6,7 @@ public class Telegrama.Application : Adw.Application {
     private UserStore users;
     private MessageList messages;
     private Notifier notifier;
+    private TrayIcon tray;
     private Window? window = null;
     private bool closing = false;
     private bool holding = false;
@@ -33,6 +34,15 @@ public class Telegrama.Application : Adw.Application {
         users = new UserStore (client);
         messages = new MessageList (client, users);
         notifier = new Notifier (this, client, auth, chats, users);
+
+        // Tied to background mode rather than a setting of its own: the icon
+        // exists to say the process is still there once the window is gone.
+        tray = new TrayIcon ();
+        tray.show_requested.connect (() => {
+            activate ();
+        });
+        tray.set_enabled (prefs.get_boolean ("run-in-background"));
+        tray.start ();
         client.start ();
         auth.start.begin ();
 
@@ -56,7 +66,10 @@ public class Telegrama.Application : Adw.Application {
         // Switching it off while the window is already hidden would otherwise
         // leave the process alive with nothing on screen.
         prefs.changed["run-in-background"].connect (() => {
-            if (!prefs.get_boolean ("run-in-background")) {
+            var on = prefs.get_boolean ("run-in-background");
+            tray.set_enabled (on);
+
+            if (!on) {
                 release_hold ();
             }
         });
@@ -95,6 +108,7 @@ public class Telegrama.Application : Adw.Application {
                 return true;
             });
         }
+        window.set_visible (true);
         window.present ();
     }
 

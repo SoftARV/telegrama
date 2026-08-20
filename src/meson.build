@@ -64,6 +64,8 @@ sources = files(
   'model/message-list.vala',
   'model/user-store.vala',
   'notify/notifier.vala',
+  'tray/status-notifier.vala',
+  'tray/tray-icon.vala',
   'ui/window.vala',
   'ui/qr-code.vala',
   'ui/chat-row.vala',
