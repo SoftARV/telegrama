@@ -176,6 +176,47 @@ public class Telegrama.MessageList : Object {
 
     // Walked from the end, since editing almost always means the last thing
     // said rather than something further back.
+    // Members whose username the composer could actually insert. Someone
+    // without one can only be mentioned through a text entity, which this
+    // client does not yet send, so offering them would insert plain text that
+    // silently fails to mention anybody.
+    public async int64[] search_members (string query) {
+        int64[] found = {};
+
+        if (chat == null || !chat.is_group) {
+            return found;
+        }
+
+        var target = chat.id;
+        try {
+            var answer = yield client.request ("searchChatMembers", (b) => {
+                b.set_member_name ("chat_id");
+                b.add_int_value (target);
+                b.set_member_name ("query");
+                b.add_string_value (query);
+                b.set_member_name ("limit");
+                b.add_int_value (12);
+            });
+
+            var members = answer.get_array_member ("members");
+            for (var i = 0; i < members.get_length (); i++) {
+                var who = members.get_object_element (i).get_object_member ("member_id");
+                if (who.get_string_member ("@type") != "messageSenderUser") {
+                    continue;
+                }
+
+                var id = who.get_int_member ("user_id");
+                if (users.username_for (id) != "") {
+                    found += id;
+                }
+            }
+        } catch (Td.ClientError e) {
+            warning ("%s", e.message);
+        }
+
+        return found;
+    }
+
     // The oldest unread mention, since that is where reading resumes. TDLib
     // answers newest-first, so the last of the batch is the one to go to.
     public async int64 next_mention () {

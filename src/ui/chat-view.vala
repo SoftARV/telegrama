@@ -12,6 +12,9 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.ScrolledWindow composer_scroll;
     [GtkChild] private unowned Gtk.Scrollbar composer_bar;
     [GtkChild] private unowned Gtk.Button send;
+    [GtkChild] private unowned Gtk.Revealer completion_revealer;
+    [GtkChild] private unowned Gtk.ScrolledWindow completion_scroller;
+    [GtkChild] private unowned Gtk.ListBox completion_list;
     [GtkChild] private unowned Gtk.Revealer edit_banner;
     [GtkChild] private unowned Gtk.Label edit_preview;
     [GtkChild] private unowned Gtk.Button edit_cancel;
@@ -34,6 +37,9 @@ public class Telegrama.ChatView : Adw.Bin {
     private bool adjusting = false;
     private Chat? drafting = null;
     private Chat? watched = null;
+
+    private int64[] candidates = {};
+    private int mention_start = -1;
     private ulong mention_handler = 0;
     private uint settle_source = 0;
     private Message? editing = null;
@@ -92,6 +98,14 @@ public class Telegrama.ChatView : Adw.Bin {
             composer_bar.visible = a.upper > a.page_size + 1;
         });
 
+        entry.buffer.changed.connect (() => {
+            offer_completions.begin ();
+        });
+
+        completion_list.row_activated.connect ((row) => {
+            accept_completion (row.get_index ());
+        });
+
         // A TextView has no placeholder of its own, so one is laid over it.
         entry.buffer.changed.connect (() => {
             placeholder.visible = entry.buffer.text == "";
@@ -102,6 +116,28 @@ public class Telegrama.ChatView : Adw.Bin {
         var keys = new Gtk.EventControllerKey ();
         keys.key_pressed.connect ((keyval, code, state) => {
             var shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
+
+            // While the list is up it owns these keys; otherwise Enter would
+            // send the half-typed name and Up would start editing.
+            if (completions_showing ()) {
+                if (keyval == Gdk.Key.Escape) {
+                    hide_completions ();
+                    return true;
+                }
+                if (keyval == Gdk.Key.Down) {
+                    move_completion (1);
+                    return true;
+                }
+                if (keyval == Gdk.Key.Up) {
+                    move_completion (-1);
+                    return true;
+                }
+                if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter || keyval == Gdk.Key.Tab) {
+                    var row = completion_list.get_selected_row ();
+                    accept_completion (row == null ? 0 : row.get_index ());
+                    return true;
+                }
+            }
 
             // Enter sends, shift+enter breaks the line. Returning false lets the
             // TextView insert the newline itself rather than doing it by hand.
@@ -389,6 +425,155 @@ public class Telegrama.ChatView : Adw.Bin {
         // Sending scrolls back down: it would be odd to send and not see it.
         set_follow (true);
         messages.send (text);
+    }
+
+    // The token being typed, if the caret sits just after an @word. Returns
+    // the query without the @, or null when the caret is somewhere else.
+    private string? mention_query (out int start) {
+        start = -1;
+
+        Gtk.TextIter caret;
+        entry.buffer.get_iter_at_mark (out caret, entry.buffer.get_insert ());
+
+        Gtk.TextIter line;
+        entry.buffer.get_iter_at_line (out line, caret.get_line ());
+
+        var text = entry.buffer.get_text (line, caret, false);
+        var at = text.last_index_of_char ('@');
+        if (at < 0) {
+            return null;
+        }
+
+        // Only an @ that begins a word: an email address should not offer
+        // members halfway through.
+        if (at > 0 && !text[at - 1].isspace ()) {
+            return null;
+        }
+
+        var word = text.substring (at + 1);
+        if (word.contains (" ")) {
+            return null;
+        }
+
+        start = (int) caret.get_offset () - (int) word.char_count () - 1;
+        return word;
+    }
+
+    private async void offer_completions () {
+        int start;
+        var query = mention_query (out start);
+
+        if (query == null || messages.chat == null || !messages.chat.is_group) {
+            hide_completions ();
+            return;
+        }
+
+        var found = yield messages.search_members (query);
+        if (found.length == 0) {
+            hide_completions ();
+            return;
+        }
+
+        // The caret may have moved on while the request was in flight.
+        int now;
+        if (mention_query (out now) == null) {
+            hide_completions ();
+            return;
+        }
+
+        candidates = found;
+        mention_start = start;
+        show_completions ();
+    }
+
+    private void show_completions () {
+        while (completion_list.get_first_child () != null) {
+            completion_list.remove (completion_list.get_first_child ());
+        }
+
+        foreach (var id in candidates) {
+            var line = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 10) {
+                margin_start = 8, margin_end = 8, margin_top = 4, margin_bottom = 4
+            };
+
+            var avatar = new Adw.Avatar (24, messages.users.name_for (id), true);
+            avatar.set_custom_image (messages.users.photo_for (id));
+            line.append (avatar);
+            line.append (new Gtk.Label (messages.users.name_for (id)) {
+                halign = Gtk.Align.START
+            });
+            line.append (new Gtk.Label ("@" + messages.users.username_for (id)) {
+                halign = Gtk.Align.START,
+                hexpand = true
+            });
+            line.get_last_child ().add_css_class ("dim-label");
+
+            completion_list.append (line);
+        }
+
+        completion_list.select_row (completion_list.get_row_at_index (0));
+        completion_scroller.vadjustment.value = 0;
+        completion_revealer.reveal_child = true;
+    }
+
+    private void hide_completions () {
+        candidates = {};
+        mention_start = -1;
+        completion_revealer.reveal_child = false;
+    }
+
+    private bool completions_showing () {
+        return completion_revealer.reveal_child && candidates.length > 0;
+    }
+
+    private void accept_completion (int index) {
+        if (index < 0 || index >= candidates.length || mention_start < 0) {
+            return;
+        }
+
+        var username = messages.users.username_for (candidates[index]);
+        var from = mention_start;
+        hide_completions ();
+
+        Gtk.TextIter start, end;
+        entry.buffer.get_iter_at_offset (out start, from);
+        entry.buffer.get_iter_at_mark (out end, entry.buffer.get_insert ());
+        entry.buffer.delete (ref start, ref end);
+        entry.buffer.insert (ref start, @"@$username ", -1);
+    }
+
+    private void move_completion (int delta) {
+        var row = completion_list.get_selected_row ();
+        var next = (row == null ? 0 : row.get_index () + delta).clamp (0, candidates.length - 1);
+
+        var target = completion_list.get_row_at_index (next);
+        completion_list.select_row (target);
+        reveal_row (target);
+    }
+
+    // A GtkListBox scrolls for its own click and focus handling, but not for a
+    // row selected in code. Arrowing to a row below the fold would otherwise
+    // select something the reader cannot see, which for a list driven entirely
+    // by the keyboard is the whole feature.
+    private void reveal_row (Gtk.ListBoxRow? row) {
+        if (row == null) {
+            return;
+        }
+
+        Graphene.Rect bounds;
+        if (!row.compute_bounds (completion_list, out bounds)) {
+            return;
+        }
+
+        var adjustment = completion_scroller.vadjustment;
+        var top = (double) bounds.origin.y;
+        var bottom = top + bounds.size.height;
+
+        if (top < adjustment.value) {
+            adjustment.value = top;
+        } else if (bottom > adjustment.value + adjustment.page_size) {
+            adjustment.value = bottom - adjustment.page_size;
+        }
     }
 
     private void sync_mentions () {

@@ -76,6 +76,26 @@ template $TelegramaChatView : Adw.Bin {
           }
         }
 
+        Revealer completion_revealer {
+          transition-type: slide_up;
+          reveal-child: false;
+
+          child: ScrolledWindow completion_scroller {
+            hscrollbar-policy: never;
+            propagate-natural-height: true;
+            max-content-height: 200;
+            margin-start: 8;
+            margin-end: 8;
+            margin-top: 6;
+
+            child: ListBox completion_list {
+              styles [
+                "completions",
+              ]
+            };
+          };
+        }
+
         Revealer edit_banner {
           transition-type: slide_up;
           reveal-child: false;
