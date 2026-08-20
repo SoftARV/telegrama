@@ -130,6 +130,14 @@ public class Telegrama.ChatList : Object {
                 lookup (body).last_read_outbox = body.get_int_member ("last_read_outbox_message_id");
                 break;
 
+            case "updateChatUnreadMentionCount":
+                lookup (body).unread_mentions = (int) body.get_int_member ("unread_mention_count");
+                break;
+
+            case "updateMessageMentionRead":
+                lookup (body).unread_mentions = (int) body.get_int_member ("unread_mention_count");
+                break;
+
             case "updateChatReadInbox":
                 lookup (body).unread_count = (int) body.get_int_member ("unread_count");
                 break;
@@ -154,6 +162,7 @@ public class Telegrama.ChatList : Object {
         chat.is_group = is_group (source);
         chat.unread_count = (int) source.get_int_member ("unread_count");
         chat.last_read_outbox = source.get_int_member ("last_read_outbox_message_id");
+        chat.unread_mentions = (int) source.get_int_member ("unread_mention_count");
 
         if (source.has_member ("last_message")) {
             apply_last_message (chat, source.get_object_member ("last_message"));

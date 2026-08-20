@@ -6,6 +6,10 @@ public class Telegrama.Chat : Object {
     public string preview { get; set; default = ""; }
     public int64 date { get; set; default = 0; }
     public int unread_count { get; set; default = 0; }
+
+    // Counted separately: a muted group shows no unread count at all, so being
+    // mentioned in one is otherwise invisible.
+    public int unread_mentions { get; set; default = 0; }
     public bool is_pinned { get; set; default = false; }
 
     // Private chats have one other participant, so naming them above every

@@ -6,6 +6,7 @@ public class Telegrama.ChatRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label time_label;
     [GtkChild] private unowned Gtk.Label preview_label;
     [GtkChild] private unowned Gtk.Image pin_icon;
+    [GtkChild] private unowned Gtk.Label mention_label;
     [GtkChild] private unowned Gtk.Label unread_label;
 
     private Chat? chat = null;
@@ -42,11 +43,12 @@ public class Telegrama.ChatRow : Gtk.Box {
         preview_label.label = chat.preview;
         time_label.label = Dates.relative (chat.date);
 
+        mention_label.visible = chat.unread_mentions > 0;
         unread_label.visible = chat.unread_count > 0;
         unread_label.label = chat.unread_count > 99 ? "99+" : chat.unread_count.to_string ();
 
         // The badge says more than the pin does, so it wins when a pinned chat
         // also has something unread.
-        pin_icon.visible = chat.is_pinned && chat.unread_count == 0;
+        pin_icon.visible = chat.is_pinned && chat.unread_count == 0 && chat.unread_mentions == 0;
     }
 }
