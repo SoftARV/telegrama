@@ -176,6 +176,46 @@ public class Telegrama.MessageList : Object {
 
     // Walked from the end, since editing almost always means the last thing
     // said rather than something further back.
+    // The oldest unread mention, since that is where reading resumes. TDLib
+    // answers newest-first, so the last of the batch is the one to go to.
+    public async int64 next_mention () {
+        if (chat == null) {
+            return 0;
+        }
+
+        var target = chat.id;
+        try {
+            var found = yield client.request ("searchChatMessages", (b) => {
+                b.set_member_name ("chat_id");
+                b.add_int_value (target);
+                b.set_member_name ("query");
+                b.add_string_value ("");
+                b.set_member_name ("from_message_id");
+                b.add_int_value (0);
+                b.set_member_name ("offset");
+                b.add_int_value (0);
+                b.set_member_name ("limit");
+                b.add_int_value (50);
+                b.set_member_name ("filter");
+                b.begin_object ();
+                b.set_member_name ("@type");
+                b.add_string_value ("searchMessagesFilterUnreadMention");
+                b.end_object ();
+            });
+
+            var list = found.get_array_member ("messages");
+            if (list.get_length () == 0) {
+                return 0;
+            }
+
+            return list.get_object_element (list.get_length () - 1).get_int_member ("id");
+        } catch (Td.ClientError e) {
+            warning ("%s", e.message);
+        }
+
+        return 0;
+    }
+
     // A mention names either a public username or a user id; both have to
     // become a chat before anything can be opened.
     public async int64 resolve_mention (string target) {

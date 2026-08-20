@@ -15,6 +15,8 @@ public class Telegrama.ChatView : Adw.Bin {
     [GtkChild] private unowned Gtk.Revealer edit_banner;
     [GtkChild] private unowned Gtk.Label edit_preview;
     [GtkChild] private unowned Gtk.Button edit_cancel;
+    [GtkChild] private unowned Gtk.Revealer mention_jump;
+    [GtkChild] private unowned Gtk.Button mention_button;
     [GtkChild] private unowned Gtk.Revealer jump_down;
     [GtkChild] private unowned Gtk.Button to_bottom_button;
 
@@ -31,6 +33,8 @@ public class Telegrama.ChatView : Adw.Bin {
     private bool flash_variant = false;
     private bool adjusting = false;
     private Chat? drafting = null;
+    private Chat? watched = null;
+    private ulong mention_handler = 0;
     private uint settle_source = 0;
     private Message? editing = null;
     private Gtk.Popover? menu = null;
@@ -128,6 +132,10 @@ public class Telegrama.ChatView : Adw.Bin {
         });
         entry.add_controller (keys);
 
+        mention_button.clicked.connect (() => {
+            seek_mention.begin ();
+        });
+
         to_bottom_button.clicked.connect (() => {
             set_follow (true);
             to_bottom ();
@@ -140,6 +148,18 @@ public class Telegrama.ChatView : Adw.Bin {
                 messages.keep_draft (drafting.id, entry.buffer.text);
             }
             drafting = messages.chat;
+
+            // The count changes as mentions are read, so the button follows the
+            // chat's property rather than being set once on open.
+            if (watched != null && mention_handler != 0) {
+                watched.disconnect (mention_handler);
+                mention_handler = 0;
+            }
+            watched = messages.chat;
+            if (watched != null) {
+                mention_handler = watched.notify["unread-mentions"].connect (sync_mentions);
+            }
+            sync_mentions ();
 
             cancel_edit ();
             set_follow (true);
@@ -369,6 +389,34 @@ public class Telegrama.ChatView : Adw.Bin {
         // Sending scrolls back down: it would be odd to send and not see it.
         set_follow (true);
         messages.send (text);
+    }
+
+    private void sync_mentions () {
+        var count = watched == null ? 0 : watched.unread_mentions;
+
+        mention_button.label = count > 1 ? @"@ $count" : "@";
+        mention_jump.reveal_child = count > 0;
+    }
+
+    private async void seek_mention () {
+        var id = yield messages.next_mention ();
+        if (id == 0) {
+            return;
+        }
+
+        if (!(yield messages.reach (id))) {
+            return;
+        }
+
+        uint position;
+        if (!messages.position_of (id, out position)) {
+            return;
+        }
+
+        anchor = -1;
+        set_follow (false);
+        list.scroll_to (position, Gtk.ListScrollFlags.NONE, null);
+        flash ((Message) messages.store.get_item (position));
     }
 
     private async void follow_mention (string target) {

@@ -35,6 +35,26 @@ template $TelegramaChatView : Adw.Bin {
           };
 
           [overlay]
+          Revealer mention_jump {
+            halign: end;
+            valign: end;
+            margin-end: 14;
+            margin-bottom: 62;
+            transition-type: crossfade;
+            reveal-child: false;
+
+            child: Button mention_button {
+              label: "@";
+              tooltip-text: "Jump to the next mention";
+
+              styles [
+                "circular",
+                "jump-down",
+              ]
+            };
+          }
+
+          [overlay]
           Revealer jump_down {
             halign: end;
             valign: end;
