@@ -9,6 +9,15 @@
       <default>640</default>
       <summary>Window height</summary>
     </key>
+    <key name="show-notifications" type="b">
+      <default>true</default>
+      <summary>Show desktop notifications</summary>
+    </key>
+    <key name="run-in-background" type="b">
+      <default>false</default>
+      <summary>Keep running after the window is closed</summary>
+      <description>Notifications only arrive while the app is running.</description>
+    </key>
     <key name="window-maximized" type="b">
       <default>false</default>
       <summary>Window maximized</summary>

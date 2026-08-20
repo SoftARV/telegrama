@@ -121,6 +121,13 @@ template $TelegramaWindow : Adw.ApplicationWindow {
 menu primary_menu {
   section {
     item {
+      label: "_Preferences";
+      action: "app.preferences";
+    }
+  }
+
+  section {
+    item {
       label: "_About Telegrama";
       action: "app.about";
     }

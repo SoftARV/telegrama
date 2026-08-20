@@ -14,6 +14,8 @@ public class Telegrama.Notifier : Object {
     public UserStore users { get; construct; }
     public Application app { get; construct; }
 
+    private Settings prefs = new Settings (Config.APP_ID);
+
     public Notifier (Application app, Td.Client client, AuthSession auth, ChatList chats, UserStore users) {
         Object (app: app, client: client, auth: auth, chats: chats, users: users);
     }
@@ -52,6 +54,10 @@ public class Telegrama.Notifier : Object {
     }
 
     private void apply (Json.Object body) {
+        if (!prefs.get_boolean ("show-notifications")) {
+            return;
+        }
+
         var group = (int) body.get_int_member ("notification_group_id");
         var chat_id = body.get_int_member ("chat_id");
 

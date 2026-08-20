@@ -33,6 +33,7 @@ blueprint_files = {
   'chat-row.ui': 'ui/chat-row.blp',
   'message-row.ui': 'ui/message-row.blp',
   'chat-view.ui': 'ui/chat-view.blp',
+  'preferences.ui': 'ui/preferences.blp',
 }
 
 blueprints = []
@@ -68,6 +69,7 @@ sources = files(
   'ui/chat-row.vala',
   'ui/message-row.vala',
   'ui/chat-view.vala',
+  'ui/preferences.vala',
   'ui/login-view.vala',
   'util/keyring.vala',
   'util/dates.vala',

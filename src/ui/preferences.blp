@@ -1,0 +1,42 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TelegramaPreferences : Adw.PreferencesDialog {
+  title: "Preferences";
+
+  Adw.PreferencesPage {
+    icon-name: "preferences-system-symbolic";
+    title: "General";
+
+    Adw.PreferencesGroup {
+      title: "Behaviour";
+
+      Adw.SwitchRow background_row {
+        title: "Run in background";
+        subtitle: "Keep running after the window is closed, so notifications still arrive";
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: "Notifications";
+
+      Adw.SwitchRow notifications_row {
+        title: "Show notifications";
+        subtitle: "Chats muted in Telegram stay silent either way";
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: "Account";
+      description: "Logging out removes this device's session and its local cache.";
+
+      Adw.ButtonRow logout_row {
+        title: "Log Out";
+
+        styles [
+          "destructive-action",
+        ]
+      }
+    }
+  }
+}
