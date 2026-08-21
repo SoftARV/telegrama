@@ -1,0 +1,77 @@
+# Maintainer: Miguel Rincon <miguelaezak@gmail.com>
+
+# Credentials are not in the repository and cannot be, so the build takes them
+# from the environment:
+#
+#   TELEGRAMA_API_ID=... TELEGRAMA_API_HASH=... makepkg -si
+#
+# Get a pair from https://my.telegram.org. They are baked into the binary, so a
+# package built with one account's credentials should not be handed to anyone.
+
+_pkgname=telegrama
+pkgname=telegrama-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Fast, low-memory native Telegram client'
+arch=('x86_64' 'aarch64')
+url='https://github.com/SoftARV/telegrama'
+license=('GPL-3.0-or-later')
+depends=(
+  'cairo'
+  'glib2'
+  'gtk4'
+  'json-glib'
+  'libadwaita'
+  'libsecret'
+  'qrencode'
+  'telegram-tdlib'
+)
+makedepends=(
+  'blueprint-compiler'
+  'git'
+  'meson'
+  'vala'
+)
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("$_pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+
+  local version
+  version=$(sed -n "s/^\s*version: '\(.*\)',$/\1/p" meson.build | head -1)
+
+  printf '%s.r%s.g%s' \
+    "$version" \
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  # Fail here rather than after a full compile, or worse, with a binary that
+  # builds and then cannot log in.
+  : "${TELEGRAMA_API_ID:?set it to your api_id from https://my.telegram.org}"
+  : "${TELEGRAMA_API_HASH:?set it to your api_hash from https://my.telegram.org}"
+}
+
+build() {
+  meson setup "$_pkgname" build \
+    --prefix=/usr \
+    --buildtype=release \
+    --wrap-mode=nodownload \
+    -Dprofile=release \
+    -Dapi_id="$TELEGRAMA_API_ID" \
+    -Dapi_hash="$TELEGRAMA_API_HASH"
+
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}

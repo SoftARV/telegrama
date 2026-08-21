@@ -7,3 +7,9 @@ subprojects/*/
 CLAUDE.local.md
 local.ini
 .mcp.json
+
+# makepkg works in place, and clones the repo into its own src/
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.zst
+packaging/arch/*.log
