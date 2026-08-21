@@ -25,13 +25,13 @@ public class Telegrama.UserStore : Object {
     }
 
     public Td.Client client { get; construct; }
+    public FileStore files { get; construct; }
 
     private HashTable<string, Contact> people = new HashTable<string, Contact> (str_hash, str_equal);
     private HashTable<string, Accent> palette = new HashTable<string, Accent> (str_hash, str_equal);
-    private HashTable<string, string> awaiting_photo = new HashTable<string, string> (str_hash, str_equal);
 
-    public UserStore (Td.Client client) {
-        Object (client: client);
+    public UserStore (Td.Client client, FileStore files) {
+        Object (client: client, files: files);
     }
 
     construct {
@@ -42,9 +42,6 @@ public class Telegrama.UserStore : Object {
                     break;
                 case "updateAccentColors":
                     remember_palette (body.get_array_member ("colors"));
-                    break;
-                case "updateFile":
-                    absorb_photo (body.get_object_member ("file"));
                     break;
                 default:
                     break;
@@ -136,47 +133,16 @@ public class Telegrama.UserStore : Object {
         }
         contact.photo_id = file_id;
 
-        var local = small.get_object_member ("local");
-        if (local.get_boolean_member ("is_downloading_completed")) {
-            load (contact, local.get_string_member ("path"));
-            return;
-        }
-
-        awaiting_photo.insert (file_id.to_string (), key);
-        client.send ("downloadFile", (b) => {
-            b.set_member_name ("file_id");
-            b.add_int_value (file_id);
-            b.set_member_name ("priority");
-            b.add_int_value (16);
-            b.set_member_name ("offset");
-            b.add_int_value (0);
-            b.set_member_name ("limit");
-            b.add_int_value (0);
-            b.set_member_name ("synchronous");
-            b.add_boolean_value (false);
-        });
+        fetch_photo.begin (key, contact, small);
     }
 
-    private void absorb_photo (Json.Object file) {
-        var file_id = ((int) file.get_int_member ("id")).to_string ();
-        var key = awaiting_photo.lookup (file_id);
-        if (key == null) {
+    private async void fetch_photo (string key, Contact contact, Json.Object file) {
+        var path = yield files.fetch_file (file);
+        if (path == "") {
             return;
         }
 
-        var local = file.get_object_member ("local");
-        if (!local.get_boolean_member ("is_downloading_completed")) {
-            return;
-        }
-
-        awaiting_photo.remove (file_id);
-
-        var contact = people.lookup (key);
-        if (contact == null) {
-            return;
-        }
-
-        load (contact, local.get_string_member ("path"));
+        load (contact, path);
         changed (int64.parse (key));
     }
 

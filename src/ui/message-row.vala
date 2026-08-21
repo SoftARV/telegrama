@@ -15,6 +15,15 @@ public class Telegrama.MessageRow : Gtk.Box {
     [GtkChild] private unowned Gtk.Label time_label;
     [GtkChild] private unowned Gtk.Label edited_label;
     [GtkChild] private unowned Gtk.Image state_icon;
+    [GtkChild] private unowned Gtk.Overlay media_frame;
+    [GtkChild] private unowned Gtk.Picture media_picture;
+    [GtkChild] private unowned Gtk.Box media_badge;
+    [GtkChild] private unowned Gtk.Image media_badge_icon;
+    [GtkChild] private unowned Gtk.Label media_note;
+    [GtkChild] private unowned Gtk.Box file_frame;
+    [GtkChild] private unowned Gtk.Image file_icon;
+    [GtkChild] private unowned Gtk.Label file_name;
+    [GtkChild] private unowned Gtk.Label file_detail;
 
     public signal void jump (int64 message_id);
     public signal void edit_requested (Message message);
@@ -22,12 +31,21 @@ public class Telegrama.MessageRow : Gtk.Box {
     public signal void mention_activated (string target);
 
     public UserStore users { get; construct; }
+    public MediaLoader loader { get; construct; }
+
+    // Wide enough to be worth looking at, narrow enough that a bubble does not
+    // take the whole window.
+    private const int PREVIEW_MAX = 320;
 
     private Message? message = null;
     private ulong handler = 0;
 
-    public MessageRow (UserStore users) {
-        Object (users: users);
+    // Which preview this row has already gone looking for, so a refresh for
+    // some unrelated property does not ask again.
+    private int requested = 0;
+
+    public MessageRow (UserStore users, MediaLoader loader) {
+        Object (users: users, loader: loader);
     }
 
     construct {
@@ -49,6 +67,32 @@ public class Telegrama.MessageRow : Gtk.Box {
             }
         });
         text_label.add_controller (reveal);
+
+        var pointer = new Gdk.Cursor.from_name ("pointer", null);
+        media_frame.cursor = pointer;
+        file_frame.cursor = pointer;
+
+        var uncover = new Gtk.GestureClick ();
+        uncover.released.connect (() => {
+            if (message == null || message.media == null) {
+                return;
+            }
+
+            if (message.media.spoiler && !message.media.revealed) {
+                message.media.revealed = true;
+                render_media ();
+                return;
+            }
+
+            open_media ();
+        });
+        media_frame.add_controller (uncover);
+
+        var open = new Gtk.GestureClick ();
+        open.released.connect (() => {
+            open_media ();
+        });
+        file_frame.add_controller (open);
 
         // Real links keep GTK's own handling; ours are intercepted before it
         // tries to hand a telegrama: URL to a browser.
@@ -103,6 +147,7 @@ public class Telegrama.MessageRow : Gtk.Box {
 
         message = null;
         handler = 0;
+        requested = 0;
     }
 
     // Spoilers are painted in the label's own colour so they read as a solid
@@ -143,6 +188,139 @@ public class Telegrama.MessageRow : Gtk.Box {
         var fits = one_line && text_width + stamp_natural + body.spacing <= limit;
 
         body.orientation = fits ? Gtk.Orientation.HORIZONTAL : Gtk.Orientation.VERTICAL;
+    }
+
+    private void render_media () {
+        var media = message.media;
+
+        text_label.visible = media == null || message.text != "";
+
+        if (media == null) {
+            media_frame.visible = false;
+            file_frame.visible = false;
+            return;
+        }
+
+        if (!media.kind.is_picture ()) {
+            media_frame.visible = false;
+            file_frame.visible = true;
+            file_icon.icon_name = media.kind.icon ();
+            file_name.label = media.file_name != "" ? media.file_name : media.kind.label ();
+            file_detail.label = media.detail ();
+            return;
+        }
+
+        file_frame.visible = false;
+        media_frame.visible = true;
+        size_preview (media);
+
+        media_picture.paintable = media.blur;
+
+        var hidden = media.spoiler && !media.revealed;
+
+        media_badge.visible = hidden || media.kind == MediaKind.VIDEO
+            || media.kind == MediaKind.ANIMATION;
+        media_badge_icon.icon_name = hidden
+            ? "view-conceal-symbolic"
+            : "media-playback-start-symbolic";
+
+        media_note.visible = !hidden && media.duration > 0;
+        media_note.label = media.duration_text ();
+
+        // A spoiler is meant to stay unreadable, and the blur already is.
+        if (hidden) {
+            return;
+        }
+
+        var sharp = loader.cached (media.preview_id);
+        if (sharp != null) {
+            media_picture.paintable = sharp;
+            return;
+        }
+
+        if (requested == media.preview_id) {
+            return;
+        }
+        requested = media.preview_id;
+
+        var target = message;
+        loader.load.begin (media, (source, result) => {
+            var texture = loader.load.end (result);
+            // The row is recycled, so it may be showing something else by now.
+            if (texture != null && message == target) {
+                media_picture.paintable = texture;
+            }
+        });
+    }
+
+    // Hands the file to whatever the desktop uses for it. Downloading it first
+    // is the whole of the wait, so the bubble reports how far along it is.
+    private void open_media () {
+        if (message == null || message.media == null || message.media.opening) {
+            return;
+        }
+
+        message.media.opening = true;
+        launch.begin (message.media, message);
+    }
+
+    private async void launch (Media media, Message target) {
+        var watcher = loader.files.progress.connect ((id, fraction) => {
+            if (id == media.file_id && message == target) {
+                report (media, fraction);
+            }
+        });
+
+        var path = media.path != ""
+            ? media.path
+            : yield loader.files.fetch (media.file_id, FileStore.PRIORITY_OPENED);
+
+        SignalHandler.disconnect (loader.files, watcher);
+        media.opening = false;
+        media.path = path;
+
+        if (message == target) {
+            render_media ();
+        }
+
+        if (path == "") {
+            warning ("could not download %s", media.kind.label ());
+            return;
+        }
+
+        try {
+            var launcher = new Gtk.FileLauncher (File.new_for_path (path));
+            yield launcher.launch (get_root () as Gtk.Window, null);
+        } catch (Error e) {
+            warning ("could not open %s: %s", path, e.message);
+        }
+    }
+
+    private void report (Media media, double fraction) {
+        var percent = "%d%%".printf ((int) (fraction * 100));
+
+        if (media.kind.is_picture ()) {
+            media_note.visible = true;
+            media_note.label = percent;
+        } else {
+            file_detail.label = percent;
+        }
+    }
+
+    // Reserved from the dimensions in the message, so the bubble is the right
+    // shape before any pixels arrive and the history does not shift when they
+    // do. Never scaled up: a small picture blown out to fill the box is worse
+    // than a small picture.
+    private void size_preview (Media media) {
+        var width = media.width > 0 ? media.width : PREVIEW_MAX;
+        var height = media.height > 0 ? media.height : PREVIEW_MAX;
+
+        var scale = double.min (
+            double.min ((double) PREVIEW_MAX / width, (double) PREVIEW_MAX / height),
+            1.0
+        );
+
+        media_picture.set_size_request ((int) (width * scale), (int) (height * scale));
     }
 
     private void refresh () {
@@ -209,13 +387,15 @@ public class Telegrama.MessageRow : Gtk.Box {
             text_label.label = Markup.escape_text (message.text);
         }
 
-        // Anything the sidebar would summarise is a stand-in rather than words
-        // someone typed, so it should not read as if they were.
-        if (message.is_media) {
+        // A stand-in like "Location" should not read as if someone typed it.
+        // A caption under a picture is exactly that, so it stays plain.
+        if (message.is_media && message.media == null) {
             text_label.add_css_class ("dim-label");
         } else {
             text_label.remove_css_class ("dim-label");
         }
+
+        render_media ();
 
         time_label.label = new DateTime.from_unix_local (message.date).format ("%H:%M");
 

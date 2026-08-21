@@ -89,6 +89,87 @@ template $TelegramaMessageRow : Box {
         }
       }
 
+      Overlay media_frame {
+        visible: false;
+        halign: start;
+        margin-bottom: 2;
+
+        Picture media_picture {
+          content-fit: cover;
+          can-shrink: true;
+
+          styles [
+            "media",
+          ]
+        }
+
+        [overlay]
+        Box media_badge {
+          halign: center;
+          valign: center;
+          visible: false;
+
+          Image media_badge_icon {
+            pixel-size: 32;
+
+            styles [
+              "media-badge",
+            ]
+          }
+        }
+
+        [overlay]
+        Label media_note {
+          halign: end;
+          valign: end;
+          margin-end: 6;
+          margin-bottom: 6;
+          visible: false;
+
+          styles [
+            "caption",
+            "media-note",
+          ]
+        }
+      }
+
+      Box file_frame {
+        spacing: 8;
+        visible: false;
+        margin-bottom: 2;
+
+        Image file_icon {
+          pixel-size: 32;
+          valign: center;
+
+          styles [
+            "dim-label",
+          ]
+        }
+
+        Box {
+          orientation: vertical;
+          valign: center;
+
+          Label file_name {
+            halign: start;
+            xalign: 0;
+            ellipsize: middle;
+            max-width-chars: 28;
+          }
+
+          Label file_detail {
+            halign: start;
+            xalign: 0;
+
+            styles [
+              "caption",
+              "dim-label",
+            ]
+          }
+        }
+      }
+
       Box body {
         spacing: 8;
 

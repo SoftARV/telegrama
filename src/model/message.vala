@@ -18,6 +18,9 @@ public class Telegrama.Message : Object {
     // bubble can render "Photo" differently from something someone typed.
     public bool is_media { get; construct; }
 
+    // Null for anything that is only words.
+    public Media? media { get; set; default = null; }
+
     // A notice rather than something a person wrote, laid out centred with no
     // bubble.
     public bool is_service { get; construct; }
